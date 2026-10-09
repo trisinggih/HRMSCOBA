@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="12dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvInstitution"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="Nama Institusi"
+            android:textColor="@color/black"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@+id/btnOptions"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tvDegree"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tingkat (S1/SMA)"
+            android:textColor="@color/text_grey"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toEndOf="@+id/tvInstitution"
+            app:layout_constraintStart_toStartOf="@+id/tvInstitution"
+            app:layout_constraintTop_toBottomOf="@+id/tvInstitution" />
+        <TextView
+            android:id="@+id/tvMajor"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Jurusan"
+            android:textColor="@color/text_grey"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toEndOf="@+id/tvInstitution"
+            app:layout_constraintStart_toStartOf="@+id/tvInstitution"
+            app:layout_constraintTop_toBottomOf="@+id/tvDegree" />
+            
+        <TextView
+            android:id="@+id/tvYear"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Tahun Lulus"
+            android:textColor="@color/text_grey"
+            android:textSize="12sp"
+            app:layout_constraintEnd_toEndOf="@+id/tvInstitution"
+            app:layout_constraintStart_toStartOf="@+id/tvInstitution"
+            app:layout_constraintTop_toBottomOf="@+id/tvMajor" />
+
+        <ImageView
+            android:id="@+id/btnOptions"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:padding="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_more_vert"
+            app:tint="@color/text_grey"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

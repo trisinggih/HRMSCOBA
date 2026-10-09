@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:name=".HRMSApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_jangebynew"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_jangebynew_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ExtHRMS"
+        android:usesCleartextTraffic="true"
+        android:largeHeap="true"
+        tools:targetApi="31">
+
+        <activity android:name=".ui.BlockedActivity" android:exported="false" />
+
+        <service
+            android:name=".service.LocationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <service
+            android:name=".service.MyFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <activity
+            android:name=".ui.splash.SplashActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".MainActivity" android:exported="false" />
+
+        <activity android:name=".ui.dashboard.DashboardActivity" />
+        <activity android:name=".ui.attendance.AttendanceActivity" />
+        <activity android:name=".ui.attendance.MapAttendanceActivity" />
+        <activity android:name=".ui.leave.LeaveActivity" />
+        <activity android:name=".ui.notification.NotificationActivity" />
+        <activity android:name=".ui.task.TaskActivity" />
+        <activity android:name=".ui.kasbon.KasbonActivity" />
+        <activity android:name=".ui.announcement.AnnouncementActivity" />
+        <activity android:name=".ui.announcement.AnnouncementDetailActivity" />
+
+        <activity android:name=".ui.camera.CameraActivity" />
+        <activity android:name=".ui.asset.AssetActivity" />
+        
+        <!-- Missing Activities -->
+        <activity android:name=".ui.approval.ApprovalActivity" />
+        <activity android:name=".ui.checkpoint.AddCheckPointActivity" />
+        <activity android:name=".ui.checkpoint.CheckPointActivity" />
+        <activity android:name=".ui.info.InfoActivity" />
+        <activity android:name=".ui.kasbon.FormKasbonActivity" />
+        <activity android:name=".ui.payslip.PayslipActivity" />
+        <activity android:name=".ui.pengajuan.FormPengajuanActivity" />
+        <activity android:name=".ui.pengajuan.FormTukarShiftActivity" />
+        <activity android:name=".ui.pengajuan.PengajuanActivity" />
+        <activity android:name=".ui.profile.ProfileActivity" />
+        <activity android:name=".ui.reimburse.FormReimburseActivity" />
+        <activity android:name=".ui.reimburse.ReimburseActivity" />
+            <activity android:name=".ui.personal.PersonalActivity" />
+        <activity android:name=".ui.overtime.OvertimeActivity" />
+        <activity android:name=".ui.overtime.FormOvertimeActivity" />
+    
+        <activity android:name=".ui.permit.PermitActivity" android:exported="false" />
+        <activity android:name=".ui.permit.FormPermitActivity" android:exported="false" />
+</application>
+</manifest>

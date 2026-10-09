@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "242932613611",
+    "project_id": "jangeby-45e58",
+    "storage_bucket": "jangeby-45e58.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:242932613611:android:d061b378dd6c4166f859ae",
+        "android_client_info": {
+          "package_name": "com.jangeby.system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRxhciuJ4zpUQ29ZNmpRs6lQReV5BfAHA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

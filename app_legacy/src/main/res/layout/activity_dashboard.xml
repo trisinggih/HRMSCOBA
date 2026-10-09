@@ -1,0 +1,1019 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/primary">
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="@color/background"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_header_rounded"
+                android:padding="24dp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivProfile"
+                    android:layout_width="55dp"
+                    android:layout_height="55dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginEnd="10dp"
+                    android:background="@color/white"
+                    android:padding="2dp"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_person"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:layout_toStartOf="@id/btnLogout"
+                    android:layout_toEndOf="@id/ivProfile"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvWelcome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Halo, Karyawan!"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSubwelcome"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="#E0F2FE"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/btnLogout"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/bg_rounded_primary"
+                    android:backgroundTint="#FF3B30"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="8dp">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_logout"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="Keluar"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </RelativeLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <!-- Warning Face Not Registered -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardWarningFace"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="#FFF3CD"
+                    app:cardCornerRadius="8dp"
+                    app:cardElevation="2dp"
+                    app:strokeColor="#FFEEBA"
+                    app:strokeWidth="1dp">
+                    
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="16dp"
+                        android:gravity="center_vertical">
+                        
+                        <ImageView
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
+                            android:src="@drawable/ic_person"
+                            app:tint="#856404" />
+                            
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:text="Anda belum mendaftarkan wajah. Ketuk untuk daftar agar bisa absensi."
+                            android:textColor="#856404"
+                            android:textSize="13sp" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="List Menu"
+                    android:textColor="@color/black"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:columnCount="4"
+                    android:useDefaultMargins="true">
+
+                    <!-- Attendance -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardAttendance"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.imageview.ShapeableImageView
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:padding="12dp"
+                                android:src="@drawable/ic_google_attendance"
+                                app:backgroundColor="#E5F4F6"
+                                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                app:tint="@color/primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Presensi"
+                                android:textColor="@color/black"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Leave -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardLeave"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_google_leave"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Pengajuan"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgePengajuan"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+                    <!-- Approval -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardApproval"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_approvalbaru"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Approval"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgeApproval"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+
+
+
+                    <!-- Tasks -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardTask"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_google_task"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Tugas"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgeTask"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Payslip -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardPayslip"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.imageview.ShapeableImageView
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:padding="12dp"
+                                android:src="@drawable/ic_google_payslip"
+                                app:backgroundColor="#E5F4F6"
+                                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                app:tint="@color/primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Slip Gaji"
+                                android:textColor="@color/black"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Assets -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardAsset"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.imageview.ShapeableImageView
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:padding="12dp"
+                                android:src="@drawable/ic_google_asset"
+                                app:backgroundColor="#E5F4F6"
+                                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                app:tint="@color/primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Aset"
+                                android:textColor="@color/black"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Kasbon -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardKasbon"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_kasbonbaru"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Kasbon"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                            
+                            <TextView
+                                android:id="@+id/badgeKasbon"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="8dp"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+
+                    <!-- Claims -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardReimburse"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_google_claims"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Klaim"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgeReimburse"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="8dp"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Notification -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardOvertime"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_lembur"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Lembur"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgeOvertime"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Check Point -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardCheckPoint"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.imageview.ShapeableImageView
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:padding="12dp"
+                                android:src="@drawable/ic_check_point"
+                                app:backgroundColor="#E5F4F6"
+                                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                app:tint="@color/primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Check Point"
+                                android:textColor="@color/black"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- Info -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardInfo"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_google_notification"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Pengumuman"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgeInfo"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                
+                    <!-- Personal -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardPersonal"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.imageview.ShapeableImageView
+                                android:layout_width="48dp"
+                                android:layout_height="48dp"
+                                android:padding="12dp"
+                                android:src="@drawable/ic_accountpersonal"
+                                app:backgroundColor="#E5F4F6"
+                                app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                app:tint="@color/primary" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                
+                                android:text="Personal"
+                                android:textColor="@color/black"
+                                android:textSize="11sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                
+                    <!-- Permit -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardPermit"
+                        android:layout_width="0dp"
+                        android:layout_height="85dp"
+                        android:layout_columnWeight="1"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp"
+                        app:strokeWidth="0dp">
+
+                        <FrameLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <com.google.android.material.imageview.ShapeableImageView
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_permitdinas"
+                                    app:backgroundColor="#E5F4F6"
+                                    app:shapeAppearanceOverlay="@style/ShapeAppearance.App.Circle"
+                                    app:tint="@color/primary" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    
+                                    android:text="Permit User"
+                                    android:textColor="@color/black"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/badgePermit"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="top|end"
+                                android:layout_marginTop="8dp"
+                                android:layout_marginEnd="8dp"
+                                android:background="@drawable/bg_badge"
+                                android:gravity="center"
+                                android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+                        </FrameLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                </GridLayout>
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Absensi Kehadiran"
+                        android:textColor="@color/black"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                </RelativeLayout>
+
+                <LinearLayout
+                    android:id="@+id/llRegularButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckOut"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        android:backgroundTint="@color/primary"
+                        android:text="Check Out"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        app:cornerRadius="28dp"
+                        app:icon="@drawable/ic_logout" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnLeaveRequest"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Leave Request"
+                        android:textAllCaps="false"
+                        android:textColor="@color/primary"
+                        app:cornerRadius="28dp"
+                        app:icon="@drawable/ic_add"
+                        app:strokeColor="@color/primary" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llOvertimeButtons"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOvertimeIn"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_marginEnd="8dp"
+                        android:layout_weight="1"
+                        app:backgroundTint="@color/btn_overtime_color"
+                        android:text="Lembur In"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        app:cornerRadius="28dp"
+                        app:icon="@drawable/ic_login" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOvertimeOut"
+                        android:layout_width="0dp"
+                        android:layout_height="56dp"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Lembur Out"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        app:backgroundTint="@color/btn_overtime_color"
+                        app:cornerRadius="28dp"
+                        app:icon="@drawable/ic_logout" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="Notifikasi"
+                    android:textColor="@color/black"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/secondary"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:id="@+id/llRecentNotifications"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <!-- Notification Item 1 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Travel reimbursement approved"
+                                android:textColor="@color/black"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="2 hours ago"
+                                android:textColor="@color/text_grey"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginVertical="12dp"
+                            android:background="@color/secondary" />
+
+                        <!-- Notification Item 2 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Sarah J. joined the 'Project X' group"
+                                android:textColor="@color/black"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="5 hours ago"
+                                android:textColor="@color/text_grey"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginVertical="12dp"
+                            android:background="@color/secondary" />
+
+                        <!-- Notification Item 3 -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Annual compliance training due soon"
+                                android:textColor="@color/black"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Yesterday"
+                                android:textColor="@color/text_grey"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+            </LinearLayout>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        app:elevation="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:menu="@menu/bottom_nav_menu" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
