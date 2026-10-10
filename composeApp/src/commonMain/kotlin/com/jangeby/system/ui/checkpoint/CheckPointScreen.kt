@@ -49,10 +49,10 @@ fun CheckPointScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var selectedCheckPoint by remember { mutableStateOf<CheckPointItem?>(null) }
 
-    LaunchedEffect(errorMessage, successMessage) {
+    LaunchedEffect(successMessage) {
         if (successMessage != null) {
             showAddSheet = false
-            viewModel.clearMessages()
+            viewModel.loadCheckPoints()
         }
     }
 

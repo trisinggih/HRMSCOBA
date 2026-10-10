@@ -362,16 +362,17 @@ data class ApprovalItem(
         get() = payload as? JsonObject
 
     val moduleLabel: String
-        get() = when (module?.lowercase()) {
+        get() = when (module?.lowercase()?.trim()) {
             "leave" -> "Cuti"
-            "sick_leave" -> "Cuti Sakit"
+            "sick_leave", "sick" -> "Sakit"
+            "late", "late_request", "late_reason", "keterlambatan" -> "Terlambat"
             "permission", "permit" -> "Izin"
             "overtime" -> "Lembur"
             "attendance_correction" -> "Koreksi Absen"
             "shift_exchange", "shift_swap" -> "Tukar Shift"
             "workday_swap" -> "Tukar Hari"
-            "loan_request", "kasbon" -> "Kasbon"
-            "reimbursement" -> "Klaim/Reimburse"
+            "loan_request", "kasbon", "loan" -> "Kasbon"
+            "reimbursement", "reimburse" -> "Reimburse"
             else -> module?.replaceFirstChar { it.uppercase() }?.replace("_", " ") ?: "Pengajuan"
         }
 
@@ -396,7 +397,8 @@ data class ApprovalItem(
                 info.append("Tipe: $type\n")
             }
             if (!amount.isNullOrEmpty()) {
-                info.append("Nominal: Rp $amount\n")
+                val formattedAmount = formatNominalRupiah(amount)
+                info.append("Nominal: $formattedAmount\n")
             }
 
             val workDate = p?.get("work_date")?.jsonPrimitive?.contentOrNull
@@ -415,6 +417,23 @@ data class ApprovalItem(
 
             return info.toString().trim()
         }
+
+    private fun formatNominalRupiah(amountStr: String?): String {
+        if (amountStr.isNullOrBlank()) return ""
+        return try {
+            val cleanStr = amountStr.replace(",", "")
+            val doubleVal = cleanStr.toDoubleOrNull()
+            if (doubleVal != null) {
+                val rounded = doubleVal.toLong()
+                val formatted = rounded.toString().reversed().chunked(3).joinToString(".").reversed()
+                "Rp $formatted"
+            } else {
+                "Rp $amountStr"
+            }
+        } catch (e: Exception) {
+            "Rp $amountStr"
+        }
+    }
 }
 
 @Serializable

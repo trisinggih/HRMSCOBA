@@ -10,9 +10,12 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.datetime.Clock
@@ -49,6 +52,7 @@ sealed class AttendanceState {
     data class LatePrompt(val date: String) : AttendanceState()
 }
 
+
 class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
 
     private val _state = MutableStateFlow<AttendanceState>(AttendanceState.Idle)
@@ -60,7 +64,12 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
     private val _todayItem = MutableStateFlow<CalendarItem?>(null)
     val todayItem: StateFlow<CalendarItem?> = _todayItem
 
-    private val _todayDateStr = MutableStateFlow("2026-10-05")
+    private fun getCurrentTodayDateStr(): String {
+        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+        return "${now.year}-${now.monthNumber.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')}"
+    }
+
+    private val _todayDateStr = MutableStateFlow(getCurrentTodayDateStr())
     val todayDateStr: StateFlow<String> = _todayDateStr
 
     private val _isLoadingData = MutableStateFlow(false)
@@ -74,6 +83,14 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
 
     private val _canClockInAnywhere = MutableStateFlow(false)
     val canClockInAnywhere: StateFlow<Boolean> = _canClockInAnywhere
+
+    /** true selama permintaan data cabang sedang berjalan */
+    private val _isBranchLoading = MutableStateFlow(false)
+    val isBranchLoading: StateFlow<Boolean> = _isBranchLoading
+
+    /** true jika semua upaya load data cabang gagal (tidak ada data sama sekali) */
+    private val _isBranchLoadFailed = MutableStateFlow(false)
+    val isBranchLoadFailed: StateFlow<Boolean> = _isBranchLoadFailed
 
     init {
         loadShiftCalendar()
@@ -93,7 +110,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     appSettings.employeeId = profile.id
                     return profile.id
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+            }
         }
 
         try {
@@ -107,7 +126,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     return profile.id
                 }
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+        }
 
         return 1L
     }
@@ -125,7 +146,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     appSettings.employeeBranchId = profile.branchId
                     return profile.branchId
                 }
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+            }
         }
 
         try {
@@ -139,58 +162,87 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     return profile.branchId
                 }
             }
-        } catch (e: Exception) {}
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+        }
 
         return -1L
     }
 
     fun loadBranchData() {
+        if (_isBranchLoading.value) return
+        _isBranchLoading.value = true
+        _isBranchLoadFailed.value = false
         viewModelScope.launch {
-            val client = ApiClient.create()
-            
             try {
-                val branchId = resolveBranchId()
-                if (branchId != -1L) {
-                    val branchRes = client.get(ApiClient.BASE_URL + "branches/$branchId")
-                    if (branchRes.status.value in 200..299) {
-                        val apiRes: ApiResponse<Branch> = branchRes.body()
-                        _primaryBranch.value = apiRes.data
-                    }
-                }
-            } catch (e: Exception) {
-                // Primary branch fetch error
-            }
+                val client = ApiClient.create()
 
-            try {
-                val permRes = client.get(ApiClient.BASE_URL + "attendance/check-radius-permission")
-                if (permRes.status.value in 200..299) {
-                    val apiRes: ApiResponse<RadiusPermissionResponse> = permRes.body()
-                    _canClockInAnywhere.value = apiRes.data?.canClockInAnywhere ?: false
-                }
-            } catch (e: Exception) {
-                // Radius permission error
-            }
-
-            try {
-                val allRes = client.get(ApiClient.BASE_URL + "attendance/branch-locations")
-                if (allRes.status.value in 200..299) {
-                    val apiRes: ApiResponse<List<BranchLocationData>> = allRes.body()
-                    val list = apiRes.data ?: emptyList()
-                    _allBranches.value = list
-                    
-                    if (_primaryBranch.value == null && list.isNotEmpty()) {
-                        val first = list.first()
-                        _primaryBranch.value = Branch(
-                            id = first.id,
-                            name = first.name,
-                            latitude = first.latitude,
-                            longitude = first.longitude,
-                            radius = first.attendanceRadius
-                        )
+                supervisorScope {
+                    // 1. Cek izin radius
+                    val permJob = async {
+                        try {
+                            val permRes = client.get(ApiClient.BASE_URL + "attendance/check-radius-permission")
+                            if (permRes.status.value in 200..299) {
+                                val apiRes: ApiResponse<RadiusPermissionResponse> = permRes.body()
+                                _canClockInAnywhere.value = apiRes.data?.canClockInAnywhere ?: false
+                            }
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                        }
                     }
+
+                    // 2. Load semua lokasi cabang
+                    val allBranchJob = async {
+                        try {
+                            val allRes = client.get(ApiClient.BASE_URL + "attendance/branch-locations")
+                            if (allRes.status.value in 200..299) {
+                                val apiRes: ApiResponse<List<BranchLocationData>> = allRes.body()
+                                val list = apiRes.data ?: emptyList()
+                                _allBranches.value = list
+                                if (_primaryBranch.value == null && list.isNotEmpty()) {
+                                    val first = list.first()
+                                    _primaryBranch.value = Branch(
+                                        id = first.id,
+                                        name = first.name,
+                                        latitude = first.latitude,
+                                        longitude = first.longitude,
+                                        radius = first.attendanceRadius
+                                    )
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                        }
+                    }
+
+                    // 3. Load primary branch
+                    val primaryJob = async {
+                        try {
+                            val branchId = resolveBranchId()
+                            if (branchId != -1L) {
+                                val branchRes = client.get(ApiClient.BASE_URL + "branches/$branchId")
+                                if (branchRes.status.value in 200..299) {
+                                    val apiRes: ApiResponse<Branch> = branchRes.body()
+                                    apiRes.data?.let { _primaryBranch.value = it }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                        }
+                    }
+
+                    try { permJob.await() } catch (e: Exception) { if (e is CancellationException) throw e }
+                    try { allBranchJob.await() } catch (e: Exception) { if (e is CancellationException) throw e }
+                    try { primaryJob.await() } catch (e: Exception) { if (e is CancellationException) throw e }
                 }
+
+                val hasData = _primaryBranch.value != null || _allBranches.value.isNotEmpty() || _canClockInAnywhere.value
+                _isBranchLoadFailed.value = !hasData
             } catch (e: Exception) {
-                // Branch locations error
+                if (e is CancellationException) throw e
+                _isBranchLoadFailed.value = _primaryBranch.value == null && _allBranches.value.isEmpty()
+            } finally {
+                _isBranchLoading.value = false
             }
         }
     }
@@ -199,7 +251,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
         _isLoadingData.value = true
         viewModelScope.launch {
             try {
-                val now = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                 val year = targetYear ?: now.year
                 val month = targetMonth ?: now.monthNumber
                 val todayStr = "${now.year}-${now.monthNumber.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')}"
@@ -227,6 +279,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _state.value = AttendanceState.Error("Gagal memuat jadwal (${response.status.value})")
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _state.value = AttendanceState.Error(e.message ?: "Terjadi kesalahan koneksi")
             } finally {
                 _isLoadingData.value = false
@@ -270,6 +323,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _state.value = AttendanceState.Error(errMsg)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _state.value = AttendanceState.Error(e.message ?: "Koneksi gagal")
             }
         }
@@ -302,6 +356,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _state.value = AttendanceState.Error(errMsg)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _state.value = AttendanceState.Error(e.message ?: "Koneksi gagal")
             }
         }
@@ -348,6 +403,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _state.value = AttendanceState.Error(errMsg)
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 _state.value = AttendanceState.Error(e.message ?: "Koneksi gagal")
             }
         }

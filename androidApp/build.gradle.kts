@@ -28,7 +28,7 @@ kotlin {
 
 android {
     namespace = "com.jangeby.system"
-    compileSdk = 35
+    compileSdk = 36
 
     sourceSets["main"].manifest.srcFile("src/main/AndroidManifest.xml")
     sourceSets["main"].res.srcDirs("src/main/res")
@@ -37,9 +37,9 @@ android {
     defaultConfig {
         applicationId = "com.jangeby.system"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
-        versionName = "2.0.0"
+        targetSdk = 36
+        versionCode = 5
+        versionName = "2.0.3"
     }
 
     buildTypes {

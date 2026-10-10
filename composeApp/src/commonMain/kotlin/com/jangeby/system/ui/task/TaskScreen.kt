@@ -26,13 +26,13 @@ import com.jangeby.system.ui.theme.*
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskScreen(
     onNavigateBack: () -> Unit,
-    viewModel: TaskViewModel = koinInject()
+    viewModel: TaskViewModel = koinViewModel()
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val currentDate by viewModel.selectedDate.collectAsState()

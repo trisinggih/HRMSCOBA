@@ -25,13 +25,13 @@ import coil3.compose.AsyncImage
 import com.jangeby.system.data.remote.AnnouncementData
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnnouncementScreen(
     onNavigateBack: () -> Unit,
-    viewModel: AnnouncementViewModel = koinInject()
+    viewModel: AnnouncementViewModel = koinViewModel()
 ) {
     val announcements by viewModel.announcements.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

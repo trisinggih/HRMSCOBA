@@ -17,7 +17,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_jangebynew"
         android:roundIcon="@mipmap/ic_jangebynew_round"
-        android:label="HRMS"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.ExtHRMS">
         

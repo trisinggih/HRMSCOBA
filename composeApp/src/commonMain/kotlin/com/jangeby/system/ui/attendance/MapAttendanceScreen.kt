@@ -12,18 +12,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.Dialog
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import com.jangeby.system.hardware.rememberCameraLauncher
 import com.jangeby.system.hardware.rememberLocationLauncher
 import com.jangeby.system.hardware.FaceCameraView
 import com.jangeby.system.ui.component.MapViewComponent
-import org.koin.compose.koinInject
+import com.jangeby.system.ui.component.BranchItemData
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapAttendanceScreen(
     action: String,
     onNavigateBack: () -> Unit,
-    viewModel: AttendanceViewModel = koinInject()
+    viewModel: AttendanceViewModel = koinViewModel()
 ) {
     var latitude by remember { mutableStateOf(0.0) }
     var longitude by remember { mutableStateOf(0.0) }
@@ -32,6 +35,8 @@ fun MapAttendanceScreen(
     var showInlineCamera by remember { mutableStateOf(false) }
     
     val state by viewModel.state.collectAsState()
+    val isBranchLoading by viewModel.isBranchLoading.collectAsState()
+    val isBranchLoadFailed by viewModel.isBranchLoadFailed.collectAsState()
     
     LaunchedEffect(state) {
         when (state) {
@@ -101,6 +106,13 @@ fun MapAttendanceScreen(
     val primaryBranch by viewModel.primaryBranch.collectAsState()
     val allBranches by viewModel.allBranches.collectAsState()
     val canClockInAnywhere by viewModel.canClockInAnywhere.collectAsState()
+
+    // Jika data cabang belum ada saat screen dibuka, paksa reload
+    LaunchedEffect(Unit) {
+        if (primaryBranch == null && allBranches.isEmpty() && !isBranchLoading) {
+            viewModel.loadBranchData()
+        }
+    }
 
 
     fun validateLocation(lat: Double, lon: Double) {
@@ -182,6 +194,10 @@ fun MapAttendanceScreen(
         isRefreshing = true
         statusText = "Memperbarui lokasi..."
         statusColor = androidx.compose.ui.graphics.Color.Gray
+        // Jika data cabang belum ada, muat ulang bersamaan
+        if (primaryBranch == null && allBranches.isEmpty() && !isBranchLoading) {
+            viewModel.loadBranchData()
+        }
         locationLauncher.fetchLocation()
     }
 
@@ -229,77 +245,169 @@ fun MapAttendanceScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (locationFetched) {
-                MapViewComponent(
-                    modifier = Modifier.fillMaxSize(),
-                    latitude = latitude,
-                    longitude = longitude,
-                    branchLatitude = primaryBranch?.latitude?.toDoubleOrNull(),
-                    branchLongitude = primaryBranch?.longitude?.toDoubleOrNull(),
-                    radius = primaryBranch?.radius ?: 100.0,
-                    recenterTrigger = recenterTrigger
-                )
-                
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    elevation = CardDefaults.cardElevation(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(statusText, style = MaterialTheme.typography.bodyMedium, color = statusColor)
-                        if (latitude != 0.0 || longitude != 0.0) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Koordinat: ${((latitude * 1000000.0).toLong() / 1000000.0)}, ${((longitude * 1000000.0).toLong() / 1000000.0)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+        val pullRefreshState = rememberPullToRefreshState()
+
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = doRefreshLocation,
+            state = pullRefreshState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (locationFetched) {
+                    val allBranchItems = remember(primaryBranch, allBranches) {
+                        val list = mutableListOf<BranchItemData>()
+                        val pLat = primaryBranch?.latitude?.toDoubleOrNull()
+                        val pLon = primaryBranch?.longitude?.toDoubleOrNull()
+                        val pR = primaryBranch?.radius ?: 100.0
+                        if (pLat != null && pLon != null && pLat != 0.0 && pLon != 0.0) {
+                            list.add(BranchItemData(pLat, pLon, pR, primaryBranch?.name ?: "Kantor Utama"))
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = doRefreshLocation,
-                                modifier = Modifier.weight(1f),
-                                enabled = !isRefreshing && !isSubmitting
-                            ) {
-                                if (isRefreshing) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                        for (b in allBranches) {
+                            val bLat = b.latitude?.toDoubleOrNull()
+                            val bLon = b.longitude?.toDoubleOrNull()
+                            val bR = b.attendanceRadius ?: 100.0
+                            if (bLat != null && bLon != null && bLat != 0.0 && bLon != 0.0) {
+                                if (list.none { it.latitude == bLat && it.longitude == bLon }) {
+                                    list.add(BranchItemData(bLat, bLon, bR, b.name ?: "Cabang"))
                                 }
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(if (isRefreshing) "Mencari..." else "Refresh")
                             }
-                            Button(
-                                onClick = { showInlineCamera = true },
-                                modifier = Modifier.weight(1.5f),
-                                enabled = !isSubmitting && !isRefreshing && isLocationValid
+                        }
+                        list
+                    }
+
+                    val firstBranch = allBranchItems.firstOrNull()
+
+                    MapViewComponent(
+                        modifier = Modifier.fillMaxSize(),
+                        latitude = latitude,
+                        longitude = longitude,
+                        branchLatitude = firstBranch?.latitude,
+                        branchLongitude = firstBranch?.longitude,
+                        radius = firstBranch?.radius ?: 100.0,
+                        branches = allBranchItems,
+                        recenterTrigger = recenterTrigger
+                    )
+                    
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        elevation = CardDefaults.cardElevation(8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Status lokasi / cabang
+                            when {
+                                isBranchLoading && primaryBranch == null && allBranches.isEmpty() -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            "Memuat data cabang...",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                isBranchLoadFailed -> {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            statusText,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = statusColor
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        OutlinedButton(
+                                            onClick = { viewModel.loadBranchData() },
+                                            enabled = !isBranchLoading
+                                        ) {
+                                            if (isBranchLoading) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(14.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                            }
+                                            Text("Muat Ulang Data Cabang")
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    Text(
+                                        statusText,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = statusColor
+                                    )
+                                }
+                            }
+                            if (latitude != 0.0 || longitude != 0.0) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Koordinat: ${((latitude * 1000000.0).toLong() / 1000000.0)}, ${((longitude * 1000000.0).toLong() / 1000000.0)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (isSubmitting) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                } else {
-                                    Text("Lanjut Absen (Foto)")
+                                OutlinedButton(
+                                    onClick = doRefreshLocation,
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !isRefreshing && !isSubmitting && !isBranchLoading
+                                ) {
+                                    if (isRefreshing || isBranchLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        when {
+                                            isBranchLoading -> "Memuat..."
+                                            isRefreshing -> "Mencari..."
+                                            else -> "Refresh"
+                                        }
+                                    )
+                                }
+                                Button(
+                                    onClick = { showInlineCamera = true },
+                                    modifier = Modifier.weight(1.5f),
+                                    enabled = !isSubmitting && !isRefreshing && !isBranchLoading && isLocationValid
+                                ) {
+                                    if (isSubmitting) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    } else {
+                                        Text("Lanjut Absen (Foto)")
+                                    }
                                 }
                             }
                         }
                     }
+                } else {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-            } else {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }
@@ -415,38 +523,47 @@ fun MapAttendanceScreen(
 
     if (state is AttendanceState.Error) {
         val err = state as AttendanceState.Error
-        AlertDialog(
-            onDismissRequest = {
+        val isCancellationError = err.message.contains("Parent job is Completed", ignoreCase = true) ||
+                err.message.contains("JobCancellationException", ignoreCase = true)
+
+        if (isCancellationError) {
+            LaunchedEffect(err) {
                 viewModel.resetState()
-            },
-            title = {
-                Text(
-                    text = "Gagal Presensi",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(err.message)
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.resetState()
-                    }
-                ) {
-                    Text("Coba Lagi")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        viewModel.resetState()
-                        onNavigateBack()
-                    }
-                ) {
-                    Text("Kembali ke Jadwal")
-                }
             }
-        )
+        } else {
+            AlertDialog(
+                onDismissRequest = {
+                    viewModel.resetState()
+                },
+                title = {
+                    Text(
+                        text = "Gagal Presensi",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text(err.message)
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.resetState()
+                        }
+                    ) {
+                        Text("Coba Lagi")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.resetState()
+                            onNavigateBack()
+                        }
+                    ) {
+                        Text("Kembali ke Jadwal")
+                    }
+                }
+            )
+        }
     }
 }

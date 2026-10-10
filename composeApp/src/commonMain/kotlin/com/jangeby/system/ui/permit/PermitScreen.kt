@@ -28,13 +28,13 @@ import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PermitScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PermitViewModel = koinInject()
+    viewModel: PermitViewModel = koinViewModel()
 ) {
     val uriHandler = LocalUriHandler.current
 
@@ -49,6 +49,13 @@ fun PermitScreen(
     var showFormSheet by remember { mutableStateOf(false) }
     var selectedItemForTracking by remember { mutableStateOf<PermitRequestItem?>(null) }
     var itemToCancel by remember { mutableStateOf<PermitRequestItem?>(null) }
+
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            showFormSheet = false
+            viewModel.loadPermits()
+        }
+    }
 
     Scaffold(
         topBar = {

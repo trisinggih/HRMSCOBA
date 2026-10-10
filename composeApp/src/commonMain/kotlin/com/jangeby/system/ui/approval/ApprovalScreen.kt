@@ -31,13 +31,13 @@ import com.jangeby.system.data.remote.ApprovalStep
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
 import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApprovalScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ApprovalViewModel = koinInject()
+    viewModel: ApprovalViewModel = koinViewModel()
 ) {
     val approvals by viewModel.approvals.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -423,7 +423,7 @@ fun ApprovalCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Modul: ${item.moduleLabel}",
+                    text = item.moduleLabel,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     color = Color(0xFF1E293B)
@@ -539,7 +539,7 @@ fun TrackingBottomSheetContent(
                     color = Color(0xFF0F172A)
                 )
                 Text(
-                    text = "Modul: ${item.moduleLabel} · Pemohon: ${item.requester?.name ?: "-"}",
+                    text = "${item.moduleLabel} · Pemohon: ${item.requester?.name ?: "-"}",
                     fontSize = 12.sp,
                     color = Color(0xFF64748B)
                 )

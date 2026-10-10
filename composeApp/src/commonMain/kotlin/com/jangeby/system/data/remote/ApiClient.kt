@@ -12,6 +12,8 @@ import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
+import kotlinx.coroutines.isActive
+
 /**
  * Factory untuk membuat Ktor HttpClient cross-platform.
  * Engine di-inject via expect/actual dari androidMain & iosMain.
@@ -54,7 +56,11 @@ object ApiClient {
     private var _client: HttpClient? = null
 
     fun create(): HttpClient {
-        return _client ?: buildClient().also { _client = it }
+        val current = _client
+        if (current == null || !current.isActive) {
+            _client = buildClient()
+        }
+        return _client!!
     }
 
     private fun buildClient(): HttpClient = HttpClient(createHttpEngine()) {

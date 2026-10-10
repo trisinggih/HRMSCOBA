@@ -18,21 +18,11 @@ actual fun MapViewComponent(
     branchLatitude: Double?,
     branchLongitude: Double?,
     radius: Double,
+    branches: List<BranchItemData>,
     recenterTrigger: Long
 ) {
-    val delegate = remember {
-        object : NSObject(), MKMapViewDelegateProtocol {
-            override fun mapView(mapView: MKMapView, rendererForOverlay: MKOverlayProtocol): MKOverlayRenderer {
-                if (rendererForOverlay is MKCircle) {
-                    val circleRenderer = MKCircleRenderer(rendererForOverlay)
-                    circleRenderer.fillColor = UIColor(red = 0.0, green = 0.53, blue = 0.47, alpha = 0.25)
-                    circleRenderer.strokeColor = UIColor(red = 0.0, green = 0.53, blue = 0.47, alpha = 0.9)
-                    circleRenderer.lineWidth = 2.0
-                    return circleRenderer
-                }
-                return MKOverlayRenderer(rendererForOverlay)
-            }
-        }
+    Box(modifier = modifier.background(Color.LightGray), contentAlignment = Alignment.Center) {
+        Text("Map View (iOS Mock)\nLat: $latitude, Lon: $longitude\nBranches: ${branches.size}")
     }
 
     val mapView = remember {
