@@ -215,107 +215,70 @@ fun DashboardScreen(
                 }
             }
         },
-        // FLOATING / FIXED BOTTOM NAVIGATION BAR (MENGGANTUNG)
+        // FLOATING BOTTOM NAVIGATION BAR (MENGGANTUNG RAPI & AMAN DI IOS/ANDROID)
         bottomBar = {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
                     color = Color.White,
-                    shadowElevation = 10.dp,
-                    border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+                    shadowElevation = 8.dp,
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    NavigationBar(
-                        containerColor = Color.Transparent,
-                        contentColor = primaryTeal,
-                        tonalElevation = 0.dp,
-                        modifier = Modifier.height(64.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 6.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        NavigationBarItem(
+                        DashboardBottomNavItem(
                             selected = true,
-                            onClick = { },
-                            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                            label = { Text("Home", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = primaryTeal,
-                                selectedTextColor = primaryTeal,
-                                indicatorColor = Color(0xFFCCFBF1)
-                            )
+                            icon = Icons.Default.Home,
+                            label = "Home",
+                            primaryColor = primaryTeal,
+                            onClick = { }
                         )
-                        NavigationBarItem(
+
+                        DashboardBottomNavItem(
                             selected = false,
-                            onClick = { onNavigateToAttendance() },
-                            icon = { Icon(Icons.Default.DateRange, contentDescription = "Presensi") },
-                            label = { Text("Presensi", fontSize = 10.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                unselectedIconColor = Color(0xFF64748B),
-                                unselectedTextColor = Color(0xFF64748B)
-                            )
+                            icon = Icons.Default.DateRange,
+                            label = "Presensi",
+                            primaryColor = primaryTeal,
+                            onClick = { onNavigateToAttendance() }
                         )
-                        NavigationBarItem(
+
+                        val tCount = badges?.taskCount ?: 0
+                        DashboardBottomNavItem(
                             selected = false,
-                            onClick = { onNavigateToTask() },
-                            icon = {
-                                val tCount = badges?.taskCount ?: 0
-                                BadgedBox(
-                                    badge = {
-                                        if (tCount > 0) {
-                                            Badge(
-                                                containerColor = Color(0xFFEF4444),
-                                                contentColor = Color.White
-                                            ) {
-                                                Text(if (tCount > 99) "99+" else tCount.toString(), fontSize = 9.sp)
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(Icons.Default.List, contentDescription = "Tugas")
-                                }
-                            },
-                            label = { Text("Tugas", fontSize = 10.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                unselectedIconColor = Color(0xFF64748B),
-                                unselectedTextColor = Color(0xFF64748B)
-                            )
+                            icon = Icons.Default.List,
+                            label = "Tugas",
+                            badgeCount = tCount,
+                            primaryColor = primaryTeal,
+                            onClick = { onNavigateToTask() }
                         )
-                        NavigationBarItem(
+
+                        val pCount = badges?.pengajuanCount ?: 0
+                        DashboardBottomNavItem(
                             selected = false,
-                            onClick = { onNavigateToPengajuan() },
-                            icon = {
-                                val pCount = badges?.pengajuanCount ?: 0
-                                BadgedBox(
-                                    badge = {
-                                        if (pCount > 0) {
-                                            Badge(
-                                                containerColor = Color(0xFFEF4444),
-                                                contentColor = Color.White
-                                            ) {
-                                                Text(if (pCount > 99) "99+" else pCount.toString(), fontSize = 9.sp)
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(Icons.Default.Send, contentDescription = "Pengajuan")
-                                }
-                            },
-                            label = { Text("Pengajuan", fontSize = 10.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                unselectedIconColor = Color(0xFF64748B),
-                                unselectedTextColor = Color(0xFF64748B)
-                            )
+                            icon = Icons.Default.Send,
+                            label = "Pengajuan",
+                            badgeCount = pCount,
+                            primaryColor = primaryTeal,
+                            onClick = { onNavigateToPengajuan() }
                         )
-                        NavigationBarItem(
+
+                        DashboardBottomNavItem(
                             selected = false,
-                            onClick = { onNavigateToProfile() },
-                            icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                            label = { Text("Profile", fontSize = 10.sp) },
-                            colors = NavigationBarItemDefaults.colors(
-                                unselectedIconColor = Color(0xFF64748B),
-                                unselectedTextColor = Color(0xFF64748B)
-                            )
+                            icon = Icons.Default.Person,
+                            label = "Profile",
+                            primaryColor = primaryTeal,
+                            onClick = { onNavigateToProfile() }
                         )
                     }
                 }
@@ -617,5 +580,67 @@ fun DashboardScreen(
         }
     }
 }
+
+@Composable
+private fun DashboardBottomNavItem(
+    selected: Boolean,
+    icon: ImageVector,
+    label: String,
+    primaryColor: Color,
+    badgeCount: Int = 0,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (selected) Color(0xFFCCFBF1) else Color.Transparent)
+                .padding(horizontal = 14.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (badgeCount > 0) {
+                BadgedBox(
+                    badge = {
+                        Badge(
+                            containerColor = Color(0xFFEF4444),
+                            contentColor = Color.White
+                        ) {
+                            Text(if (badgeCount > 99) "99+" else badgeCount.toString(), fontSize = 9.sp)
+                        }
+                    }
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = if (selected) primaryColor else Color(0xFF64748B),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = if (selected) primaryColor else Color(0xFF64748B),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) primaryColor else Color(0xFF64748B)
+        )
+    }
+}
+
 
 
