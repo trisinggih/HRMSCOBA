@@ -21,8 +21,19 @@ actual fun MapViewComponent(
     branches: List<BranchItemData>,
     recenterTrigger: Long
 ) {
-    Box(modifier = modifier.background(Color.LightGray), contentAlignment = Alignment.Center) {
-        Text("Map View (iOS Mock)\nLat: $latitude, Lon: $longitude\nBranches: ${branches.size}")
+    val delegate = remember {
+        object : NSObject(), MKMapViewDelegateProtocol {
+            override fun mapView(mapView: MKMapView, rendererForOverlay: MKOverlayProtocol): MKOverlayRenderer {
+                if (rendererForOverlay is MKCircle) {
+                    val circleRenderer = MKCircleRenderer(rendererForOverlay)
+                    circleRenderer.fillColor = UIColor(red = 0.0, green = 0.53, blue = 0.47, alpha = 0.25)
+                    circleRenderer.strokeColor = UIColor(red = 0.0, green = 0.53, blue = 0.47, alpha = 0.9)
+                    circleRenderer.lineWidth = 2.0
+                    return circleRenderer
+                }
+                return MKOverlayRenderer(rendererForOverlay)
+            }
+        }
     }
 
     val mapView = remember {
@@ -32,11 +43,13 @@ actual fun MapViewComponent(
         }
     }
 
-    LaunchedEffect(latitude, longitude, recenterTrigger) {
-        if (latitude != 0.0 && longitude != 0.0) {
-            val userCoord = CLLocationCoordinate2DMake(latitude, longitude)
+    LaunchedEffect(latitude, longitude, branchLatitude, branchLongitude, recenterTrigger) {
+        val targetLat = if (latitude != 0.0) latitude else (branchLatitude ?: 0.0)
+        val targetLon = if (longitude != 0.0) longitude else (branchLongitude ?: 0.0)
+        if (targetLat != 0.0 && targetLon != 0.0) {
+            val centerCoord = CLLocationCoordinate2DMake(targetLat, targetLon)
             val zoomDistance = (radius * 3.5).coerceAtLeast(800.0)
-            val region = MKCoordinateRegionMakeWithDistance(userCoord, zoomDistance, zoomDistance)
+            val region = MKCoordinateRegionMakeWithDistance(centerCoord, zoomDistance, zoomDistance)
             mapView.setRegion(region, animated = true)
         }
     }
@@ -45,24 +58,44 @@ actual fun MapViewComponent(
         factory = { mapView },
         modifier = modifier,
         update = { view ->
-            val oldAnnotations = view.annotations
-            if (oldAnnotations.isNotEmpty()) {
-                view.removeAnnotations(oldAnnotations)
-            }
-            val oldOverlays = view.overlays
-            if (oldOverlays.isNotEmpty()) {
-                view.removeOverlays(oldOverlays)
+            // Safely remove existing annotations without crashing if view.annotations is null
+            try {
+                val oldAnnotations = view.annotations
+                if (oldAnnotations != null) {
+                    val toRemove = oldAnnotations.filter { it !is MKUserLocation }
+                    if (toRemove.isNotEmpty()) {
+                        view.removeAnnotations(toRemove)
+                    }
+                }
+            } catch (_: Throwable) {}
+
+            // Safely remove existing overlays without crashing if view.overlays is null
+            try {
+                val oldOverlays = view.overlays
+                if (oldOverlays != null && oldOverlays.isNotEmpty()) {
+                    view.removeOverlays(oldOverlays)
+                }
+            } catch (_: Throwable) {}
+
+            // 1. Draw All Branch Geofence Radii & Annotations
+            val safeBranches = branches ?: emptyList()
+            val branchesToDraw = if (safeBranches.isNotEmpty()) {
+                safeBranches
+            } else if (branchLatitude != null && branchLongitude != null && branchLatitude != 0.0 && branchLongitude != 0.0) {
+                listOf(BranchItemData(branchLatitude, branchLongitude, radius, "Lokasi Kantor Cabang"))
+            } else {
+                emptyList()
             }
 
-            // 1. Draw Branch Geofence Radius & Annotation
-            if (branchLatitude != null && branchLongitude != null && branchLatitude != 0.0 && branchLongitude != 0.0) {
-                val branchCoord = CLLocationCoordinate2DMake(branchLatitude, branchLongitude)
-                val circle = MKCircle.circleWithCenterCoordinate(branchCoord, radius)
+            for (b in branchesToDraw) {
+                if (b.latitude == 0.0 || b.longitude == 0.0) continue
+                val branchCoord = CLLocationCoordinate2DMake(b.latitude, b.longitude)
+                val circle = MKCircle.circleWithCenterCoordinate(branchCoord, b.radius)
                 view.addOverlay(circle)
 
                 val branchPin = MKPointAnnotation().apply {
                     setCoordinate(branchCoord)
-                    setTitle("Kantor / Cabang")
+                    setTitle(if (b.name.isNotBlank()) b.name else "Kantor / Cabang")
                 }
                 view.addAnnotation(branchPin)
             }
@@ -79,3 +112,4 @@ actual fun MapViewComponent(
         }
     )
 }
+
