@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,14 +28,14 @@ import androidx.compose.ui.unit.sp
 import com.jangeby.system.data.remote.CalendarItem
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttendanceScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMap: (action: String) -> Unit = {},
-    viewModel: AttendanceViewModel = koinInject()
+    viewModel: AttendanceViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val calendarItems by viewModel.calendarItems.collectAsState()
@@ -45,6 +47,10 @@ fun AttendanceScreen(
     var showLateReasonSheet by remember { mutableStateOf(false) }
     var selectedLateDate by remember { mutableStateOf("") }
     var currentLateReasonInput by remember { mutableStateOf("") }
+
+    // Pull-to-refresh state
+    val pullRefreshState = rememberPullToRefreshState()
+    val isRefreshing = isLoadingData
 
     LaunchedEffect(Unit) {
         viewModel.loadShiftCalendar()
@@ -65,21 +71,9 @@ fun AttendanceScreen(
         }
     }
 
-    // Default mock list fallback if backend calendar is loading or empty
-    val mockCalendar = remember {
-        listOf(
-            CalendarItem(date = "2026-10-05", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00"), attendance = com.jangeby.system.data.remote.AttendanceDetail(1, "08:02:00", "17:05:00", lateMinutes = 0, status = "present")),
-            CalendarItem(date = "2026-10-06", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00"), attendance = com.jangeby.system.data.remote.AttendanceDetail(2, "08:14:00", "17:00:00", lateMinutes = 14, status = "late")),
-            CalendarItem(date = "2026-10-07", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-08", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-09", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-10", isHoliday = true, shift = null),
-            CalendarItem(date = "2026-10-11", isHoliday = true, shift = null)
-        )
-    }
-
-    val displayCalendar = if (calendarItems.isNotEmpty()) calendarItems else mockCalendar
-    val activeToday = todayItem ?: displayCalendar.find { it.date == todayDateStr } ?: displayCalendar.firstOrNull()
+    // Default kosong — tidak ada mock data, biarkan loading terlihat jelas
+    val displayCalendar = calendarItems
+    val activeToday = todayItem
 
     Scaffold(
         topBar = {
@@ -88,12 +82,18 @@ fun AttendanceScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color(0xFFF8FAFC)
     ) { padding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.loadShiftCalendar() },
+            state = pullRefreshState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 32.dp)
+                .padding(padding)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
             // Header Banner Shift Hari Ini (bindTodayStatus logic)
             item {
                 TodayAttendanceHeader(
@@ -128,7 +128,7 @@ fun AttendanceScreen(
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Oktober 2026",
+                        text = formatMonthHeader(todayDateStr),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Primary
@@ -137,18 +137,90 @@ fun AttendanceScreen(
             }
 
             // 1-Month Shift Calendar Rows (HistoryAdapter logic)
-            items(displayCalendar) { item ->
-                ShiftCalendarRow(
-                    item = item,
-                    onEditLateReason = {
-                        selectedLateDate = item.date ?: ""
-                        currentLateReasonInput = item.attendance?.lateReason ?: item.attendance?.notes ?: item.lateReason ?: ""
-                        showLateReasonSheet = true
+            if (isLoadingData && displayCalendar.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Primary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Memuat data jadwal...",
+                                fontSize = 14.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
                     }
-                )
+                }
+            } else if (displayCalendar.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFFCBD5E1),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Belum ada data jadwal presensi",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tarik ke bawah untuk memperbarui",
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(displayCalendar) { item ->
+                    ShiftCalendarRow(
+                        item = item,
+                        onEditLateReason = {
+                            selectedLateDate = item.date ?: ""
+                            currentLateReasonInput = item.attendance?.lateReason ?: item.attendance?.notes ?: item.lateReason ?: ""
+                            showLateReasonSheet = true
+                        }
+                    )
+                }
             }
         }
     }
+}
 
     if (showLateReasonSheet) {
         var inputReason by remember { mutableStateOf(currentLateReasonInput) }
@@ -321,7 +393,16 @@ fun TodayAttendanceHeader(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (todayItem == null || (todayItem.shift == null && todayItem.isHoliday != true)) {
+                    if (isLoading && todayItem == null) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Memuat data presensi hari ini...",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else if (todayItem == null || (todayItem.shift == null && todayItem.isHoliday != true)) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Belum ada jadwal hari ini.",
@@ -703,6 +784,18 @@ fun formatDateHeader(dateStr: String?): String {
         val mIdx = parts[1].toIntOrNull() ?: 0
         val mStr = if (mIdx in 1..12) months[mIdx] else parts[1]
         return "${parts[2]} $mStr ${parts[0]}"
+    }
+    return dateStr
+}
+
+fun formatMonthHeader(dateStr: String?): String {
+    if (dateStr.isNullOrBlank()) return ""
+    val parts = dateStr.split("-")
+    if (parts.size >= 2) {
+        val months = listOf("", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember")
+        val mIdx = parts[1].toIntOrNull() ?: 0
+        val mStr = if (mIdx in 1..12) months[mIdx] else parts[1]
+        return "$mStr ${parts[0]}"
     }
     return dateStr
 }

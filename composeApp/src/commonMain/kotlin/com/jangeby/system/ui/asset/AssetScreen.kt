@@ -19,13 +19,13 @@ import androidx.compose.ui.unit.sp
 import com.jangeby.system.data.remote.AssetItem
 import com.jangeby.system.ui.component.HrmsTopBar
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetScreen(
     onNavigateBack: () -> Unit,
-    viewModel: AssetViewModel = koinInject()
+    viewModel: AssetViewModel = koinViewModel()
 ) {
     val assets by viewModel.assets.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

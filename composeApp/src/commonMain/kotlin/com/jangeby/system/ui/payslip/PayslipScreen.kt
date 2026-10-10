@@ -22,13 +22,13 @@ import com.jangeby.system.data.remote.PayslipDetailItem
 import com.jangeby.system.data.remote.PayslipItem
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayslipScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PayslipViewModel = koinInject()
+    viewModel: PayslipViewModel = koinViewModel()
 ) {
     val payslipList by viewModel.payslips.collectAsState()
     val selectedPayslip by viewModel.selectedPayslip.collectAsState()

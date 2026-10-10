@@ -34,13 +34,13 @@ import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KasbonScreen(
     onNavigateBack: () -> Unit,
-    viewModel: KasbonViewModel = koinInject()
+    viewModel: KasbonViewModel = koinViewModel()
 ) {
     val loans by viewModel.loans.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -67,10 +67,11 @@ fun KasbonScreen(
     }
 
     LaunchedEffect(successMessage) {
-        successMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearMessages()
+        successMessage?.let { msg ->
             showFormSheet = false
+            viewModel.loadLoans()
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearMessages()
         }
     }
 

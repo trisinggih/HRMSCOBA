@@ -16,6 +16,7 @@ import com.jangeby.system.ui.announcement.AnnouncementViewModel
 import com.jangeby.system.ui.personal.PersonalViewModel
 import com.jangeby.system.ui.permit.PermitViewModel
 import com.jangeby.system.ui.payslip.PayslipViewModel
+import com.jangeby.system.ui.profile.ProfileViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -26,20 +27,21 @@ val appModule = module {
         ApiClient.setTokenProvider { get<AppSettings>().token }
         ApiClient.create() 
     }
-    viewModel { LoginViewModel(get()) }
-    viewModel { LeaveViewModel() }
-    viewModel { OvertimeViewModel() }
-    viewModel { AttendanceViewModel(get()) }
-    viewModel { PengajuanViewModel() }
-    viewModel { ApprovalViewModel() }
-    viewModel { TaskViewModel(get()) }
-    viewModel { AssetViewModel() }
-    viewModel { KasbonViewModel() }
-    viewModel { ReimburseViewModel() }
-    viewModel { AnnouncementViewModel() }
-    viewModel { PersonalViewModel() }
-    viewModel { PermitViewModel() }
-    viewModel { PayslipViewModel() }
+    viewModel<LoginViewModel> { LoginViewModel(get()) }
+    viewModel<LeaveViewModel> { LeaveViewModel() }
+    viewModel<OvertimeViewModel> { OvertimeViewModel() }
+    viewModel<AttendanceViewModel> { AttendanceViewModel(get()) }
+    viewModel<PengajuanViewModel> { PengajuanViewModel() }
+    viewModel<ApprovalViewModel> { ApprovalViewModel() }
+    viewModel<TaskViewModel> { TaskViewModel(get()) }
+    viewModel<AssetViewModel> { AssetViewModel() }
+    viewModel<KasbonViewModel> { KasbonViewModel() }
+    viewModel<ReimburseViewModel> { ReimburseViewModel() }
+    viewModel<AnnouncementViewModel> { AnnouncementViewModel() }
+    viewModel<PersonalViewModel> { PersonalViewModel() }
+    viewModel<PermitViewModel> { PermitViewModel() }
+    viewModel<PayslipViewModel> { PayslipViewModel() }
+    viewModel<ProfileViewModel> { ProfileViewModel(get()) }
 }
 
 fun initKoin() {

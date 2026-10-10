@@ -27,7 +27,7 @@ import kotlinx.datetime.toLocalDateTime
 
 import androidx.compose.foundation.lazy.LazyRow
 import com.jangeby.system.data.remote.ApprovalItem
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
@@ -47,7 +47,7 @@ data class PengajuanHistoryItem(
 @Composable
 fun PengajuanScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PengajuanViewModel = koinInject()
+    viewModel: PengajuanViewModel = koinViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Sakit", "Izin", "Tukar Hari", "Cuti")
@@ -84,6 +84,7 @@ fun PengajuanScreen(
         when (val currentState = state) {
             is PengajuanState.Success -> {
                 showBottomSheet = false
+                viewModel.loadAllData()
                 snackbarHostState.showSnackbar(currentState.message)
                 viewModel.resetState()
             }

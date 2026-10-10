@@ -66,6 +66,7 @@ fun DashboardScreen(
     var badges by remember { mutableStateOf<BadgeResponse?>(null) }
     var hasClockedOut by remember { mutableStateOf(false) }
     var overtimeToday by remember { mutableStateOf<OvertimeRequestItem?>(null) }
+    var recentNotifications by remember { mutableStateOf<List<NotificationItem>>(emptyList()) }
 
     LaunchedEffect(Unit) {
         try {
@@ -74,6 +75,17 @@ fun DashboardScreen(
             if (response.status.value in 200..299) {
                 val res: ApiResponse<BadgeResponse> = response.body()
                 badges = res.data
+            }
+
+            // Fetch 3 recent notifications for home screen
+            try {
+                val notifRes = client.get(ApiClient.BASE_URL + "my/notifications?limit=3")
+                if (notifRes.status.value in 200..299) {
+                    val notifData: ApiResponse<PaginatedResponse<NotificationItem>> = notifRes.body()
+                    recentNotifications = notifData.data?.data ?: emptyList()
+                }
+            } catch (e: Exception) {
+                // ignore
             }
 
             // Check today's attendance state to resume live location tracking if checked in
@@ -528,7 +540,7 @@ fun DashboardScreen(
                         }
 
                         OutlinedButton(
-                            onClick = onNavigateToLeave,
+                            onClick = onNavigateToPengajuan,
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
@@ -559,62 +571,159 @@ fun DashboardScreen(
             // Notifikasi Section
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Notifikasi",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
-                )
-                Surface(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .clickable { onNavigateToNotification() },
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 2.dp,
-                    border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
+                    Text(
+                        text = "Notifikasi Terbaru",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Lihat Semua",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = primaryTeal,
+                        modifier = Modifier.clickable { onNavigateToNotification() }
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (recentNotifications.isEmpty()) {
+                item {
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 16.dp)
+                            .clickable { onNavigateToNotification() },
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
                     ) {
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(42.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFE0F2FE)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = null,
-                                tint = primaryTeal,
-                                modifier = Modifier.size(22.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFE0F2FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = primaryTeal,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Belum Ada Aktivitas",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Tidak ada notifikasi baru saat ini.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Pengumuman Sistem HRMS",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Tidak ada notifikasi baru saat ini.",
-                                fontSize = 11.sp,
-                                color = Color(0xFF64748B)
-                            )
+                    }
+                }
+            } else {
+                items(recentNotifications) { notif ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .clickable { onNavigateToNotification() },
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        shadowElevation = 1.dp,
+                        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (notif.isRead == true) Color(0xFFF1F5F9) else Color(0xFFE0F2FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = if (notif.isRead == true) Color(0xFF64748B) else primaryTeal,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = notif.title ?: "Aktivitas",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                                if (!notif.body.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = notif.body,
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF64748B),
+                                        maxLines = 2
+                                    )
+                                }
+                                if (!notif.createdAt.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = formatNotifTime(notif.createdAt),
+                                        fontSize = 10.sp,
+                                        color = Color(0xFF94A3B8)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+private fun formatNotifTime(dateStr: String?): String {
+    if (dateStr.isNullOrBlank()) return ""
+    return try {
+        val clean = dateStr.replace("T", " ").take(16)
+        val parts = clean.split(" ")
+        val dateParts = parts[0].split("-")
+        val year = dateParts[0]
+        val month = dateParts[1]
+        val day = dateParts[2]
+        val time = if (parts.size > 1) parts[1] else ""
+        "$day/$month/$year $time".trim()
+    } catch (e: Exception) {
+        dateStr
     }
 }
 

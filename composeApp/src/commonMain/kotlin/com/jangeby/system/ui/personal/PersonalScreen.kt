@@ -31,13 +31,13 @@ import com.jangeby.system.data.remote.FamilyModel
 import com.jangeby.system.data.remote.FamilyRequest
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonalScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PersonalViewModel = koinInject()
+    viewModel: PersonalViewModel = koinViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Info Pribadi", "Keluarga", "Pendidikan")
