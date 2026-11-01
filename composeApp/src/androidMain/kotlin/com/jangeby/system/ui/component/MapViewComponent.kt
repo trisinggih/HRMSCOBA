@@ -26,6 +26,7 @@ actual fun MapViewComponent(
     branchLatitude: Double?,
     branchLongitude: Double?,
     radius: Double,
+    branches: List<BranchItemData>,
     recenterTrigger: Long
 ) {
     val context = LocalContext.current
@@ -75,27 +76,37 @@ actual fun MapViewComponent(
         
         view.overlays.clear()
 
-        // 1. Draw Branch Radius Circle
-        if (branchLatitude != null && branchLongitude != null && branchLatitude != 0.0 && branchLongitude != 0.0) {
-            val branchPoint = GeoPoint(branchLatitude, branchLongitude)
+        // 1. Draw All Branch Radius Circles & Markers
+        val branchesToDraw = if (branches.isNotEmpty()) {
+            branches
+        } else if (branchLatitude != null && branchLongitude != null && branchLatitude != 0.0 && branchLongitude != 0.0) {
+            listOf(BranchItemData(branchLatitude, branchLongitude, radius, "Lokasi Kantor Cabang"))
+        } else {
+            emptyList()
+        }
+
+        for (b in branchesToDraw) {
+            if (b.latitude == 0.0 || b.longitude == 0.0) continue
+            val branchPoint = GeoPoint(b.latitude, b.longitude)
             
-            // Draw radius polygon
-            val circlePolygon = Polygon().apply {
-                points = Polygon.pointsAsCircle(branchPoint, radius)
-                fillPaint.color = android.graphics.Color.parseColor("#33008779")
-                outlinePaint.color = android.graphics.Color.parseColor("#008779")
-                outlinePaint.strokeWidth = 3f
+            val circlePolygon = Polygon(view).apply {
+                points = Polygon.pointsAsCircle(branchPoint, b.radius)
+                fillColor = android.graphics.Color.parseColor("#44008779")
+                strokeColor = android.graphics.Color.parseColor("#FF008779")
+                strokeWidth = 4f
             }
             view.overlays.add(circlePolygon)
         }
 
         // 2. Draw User Location Marker
-        val userMarker = Marker(view).apply {
-            position = userPoint
-            title = "Lokasi Anda"
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+        if (latitude != 0.0 || longitude != 0.0) {
+            val userMarker = Marker(view).apply {
+                position = userPoint
+                title = "Lokasi Anda"
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            }
+            view.overlays.add(userMarker)
         }
-        view.overlays.add(userMarker)
 
         view.invalidate()
     }

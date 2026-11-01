@@ -21,6 +21,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
 
 import kotlinx.serialization.json.JsonElement
 
@@ -28,7 +29,7 @@ class TaskViewModel(
     private val appSettings: AppSettings = AppSettings()
 ) : ViewModel() {
 
-    private val today: LocalDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+    private val today: LocalDate = DateTimeUtils.nowInJakarta().date
 
     private val _selectedDate = MutableStateFlow(today)
     val selectedDate: StateFlow<LocalDate> = _selectedDate

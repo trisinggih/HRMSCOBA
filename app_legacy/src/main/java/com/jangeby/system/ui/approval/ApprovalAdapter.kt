@@ -26,7 +26,7 @@ class ApprovalAdapter(
         fun bind(item: ApprovalItem) {
             // Requester Info
             binding.tvRequesterName.text = item.requester?.name ?: "Karyawan"
-            val photoUrl = item.requester?.photo?.let { "http://192.168.10.6:8011/storage/$it" }
+            val photoUrl = item.requester?.photo?.let { "${ApiClient.BASE_URL.replace("/api/v1/", "/storage/")}${it.removePrefix("/")}" }
             if (!photoUrl.isNullOrEmpty()) {
                 Glide.with(binding.root.context)
                     .load(photoUrl)

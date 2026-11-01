@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
@@ -192,7 +193,10 @@ class LocationService : Service() {
     }
 
     private fun processAndSendLocation(location: Location) {
-        val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val isDebuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        val isMock = if (isDebuggable) {
+            false
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             location.isMock
         } else {
             @Suppress("DEPRECATION")
@@ -201,6 +205,7 @@ class LocationService : Service() {
 
         if (isMock) {
             Log.w(TAG, "Fake GPS / Mock Location detected! Discarding location.")
+            com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Live location background berasal dari Fake GPS")
             return
         }
 

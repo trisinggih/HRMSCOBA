@@ -1,38 +1,79 @@
 package com.jangeby.system
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.addCallback
 import androidx.core.app.ActivityCompat
-import com.google.firebase.messaging.FirebaseMessaging
-import com.jangeby.system.data.remote.ApiClient
-import com.jangeby.system.data.remote.FcmTokenRequest
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.jangeby.system.notification.FcmManager
+import com.jangeby.system.security.SecurityChecker
+import com.jangeby.system.security.SecurityViolation
+import com.jangeby.system.update.InAppUpdateManager
+import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var inAppUpdateManager: InAppUpdateManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize and check forced in-app update from Google Play Store
+        inAppUpdateManager = InAppUpdateManager(this)
+        inAppUpdateManager.checkForUpdate()
+
+        // Check security state immediately
+        SecurityChecker.checkSecurity()
+
+        // Handle back press: if security violation active or mandatory update pending, exit app immediately
+        onBackPressedDispatcher.addCallback(this) {
+            if (inAppUpdateManager.isUpdateRequired) {
+                finishAffinity()
+                exitProcess(0)
+            } else if (SecurityChecker.violationState.value !is SecurityViolation.None) {
+                finishAffinity()
+                exitProcess(0)
+            } else {
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+                isEnabled = true
+            }
+        }
 
         // Request runtime permissions for notifications & location
         requestPermissionsIfNeeded()
 
         // Sync FCM token with backend
-        syncFcmToken()
+        FcmManager.syncToken()
 
         setContent {
             App() // Dari shared composeApp
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-check security status when resuming activity
+        SecurityChecker.checkSecurity()
+
+        // Resume in-progress update or check if new release is available
+        inAppUpdateManager.resumeUpdateIfNeeded()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        inAppUpdateManager.onActivityResult(requestCode, resultCode, data)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        inAppUpdateManager.onDestroy()
     }
 
     private fun requestPermissionsIfNeeded() {
@@ -55,33 +96,5 @@ class MainActivity : ComponentActivity() {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 1001)
         }
     }
-
-    private fun syncFcmToken() {
-        try {
-            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                if (!task.isSuccessful) {
-                    Log.w("FCM", "Fetching FCM registration token failed", task.exception)
-                    return@addOnCompleteListener
-                }
-
-                val token = task.result
-                Log.d("FCM", "Current FCM Token: $token")
-
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val client = ApiClient.create()
-                        client.post(ApiClient.BASE_URL + "employee-auth/fcm-token") {
-                            contentType(ContentType.Application.Json)
-                            setBody(FcmTokenRequest(fcmToken = token))
-                        }
-                        Log.d("FCM", "FCM token synced to server")
-                    } catch (e: Exception) {
-                        Log.e("FCM", "Failed to sync token", e)
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("FCM", "Error initializing FCM", e)
-        }
-    }
 }
+

@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -49,10 +51,10 @@ fun CheckPointScreen(
     var showAddSheet by remember { mutableStateOf(false) }
     var selectedCheckPoint by remember { mutableStateOf<CheckPointItem?>(null) }
 
-    LaunchedEffect(errorMessage, successMessage) {
+    LaunchedEffect(successMessage) {
         if (successMessage != null) {
             showAddSheet = false
-            viewModel.clearMessages()
+            viewModel.loadCheckPoints()
         }
     }
 
@@ -298,7 +300,10 @@ fun AddCheckPointBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 36.dp)
         ) {
             Text("Tambah Check Point", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
@@ -415,7 +420,9 @@ fun CheckPointDetailBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 36.dp)
         ) {
             Text(
                 text = "Detail Check Point",

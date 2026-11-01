@@ -23,7 +23,9 @@ fun DatePickerField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    minDate: String? = null,
+    maxDate: String? = null
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
@@ -53,7 +55,44 @@ fun DatePickerField(
     }
 
     if (showDialog) {
-        val datePickerState = rememberDatePickerState()
+        val selectableDates = remember(minDate, maxDate) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val date = Instant.fromEpochMilliseconds(utcTimeMillis)
+                        .toLocalDateTime(TimeZone.UTC).date.toString()
+                    if (minDate != null && date < minDate) return false
+                    if (maxDate != null && date > maxDate) return false
+                    return true
+                }
+
+                override fun isSelectableYear(year: Int): Boolean {
+                    val minYear = minDate?.take(4)?.toIntOrNull()
+                    val maxYear = maxDate?.take(4)?.toIntOrNull()
+                    if (minYear != null && year < minYear) return false
+                    if (maxYear != null && year > maxYear) return false
+                    return true
+                }
+            }
+        }
+
+        val initialDateStr = if (value.isNotBlank() && (minDate == null || value >= minDate) && (maxDate == null || value <= maxDate)) {
+            value
+        } else if (!minDate.isNullOrBlank()) {
+            minDate
+        } else null
+
+        val initialMillis = remember(initialDateStr) {
+            initialDateStr?.let {
+                runCatching {
+                    Instant.parse("${it.take(10)}T00:00:00Z").toEpochMilliseconds()
+                }.getOrNull()
+            }
+        }
+
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+            selectableDates = selectableDates
+        )
         DatePickerDialog(
             onDismissRequest = { showDialog = false },
             confirmButton = {
@@ -83,7 +122,9 @@ fun TimePickerField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    defaultHour: Int = 19,
+    defaultMinute: Int = 0
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
@@ -113,7 +154,14 @@ fun TimePickerField(
     }
 
     if (showDialog) {
-        val timePickerState = rememberTimePickerState()
+        val parts = value.split(":")
+        val initialHour = parts.getOrNull(0)?.toIntOrNull() ?: defaultHour
+        val initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: defaultMinute
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            is24Hour = true
+        )
         AlertDialog(
             onDismissRequest = { showDialog = false },
             confirmButton = {

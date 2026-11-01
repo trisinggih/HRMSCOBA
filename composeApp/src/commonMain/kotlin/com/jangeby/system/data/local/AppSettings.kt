@@ -22,6 +22,10 @@ class AppSettings(private val settings: Settings = createSettings()) {
         private const val KEY_POSITION = "user_position"
         private const val KEY_EMPLOYEE_ID = "employee_db_id"
         private const val KEY_BRANCH_ID = "employee_branch_id"
+        private const val KEY_PHOTO = "user_photo_url"
+        private const val KEY_HAS_SUBORDINATES = "has_subordinates"
+        private const val KEY_SUBORDINATES_COUNT = "subordinates_count"
+        private const val KEY_LAST_SEEN_MILESTONE_POPUP_DATE = "last_seen_milestone_popup_date_v4"
     }
 
     var employeeId: Long
@@ -72,6 +76,29 @@ class AppSettings(private val settings: Settings = createSettings()) {
         set(value) {
             if (value != null) settings[KEY_POSITION] = value
             else settings.remove(KEY_POSITION)
+        }
+
+    var userPhotoUrl: String?
+        get() = com.jangeby.system.data.remote.ApiClient.sanitizeImageUrl(settings[KEY_PHOTO])
+        set(value) {
+            val sanitized = com.jangeby.system.data.remote.ApiClient.sanitizeImageUrl(value)
+            if (sanitized != null) settings[KEY_PHOTO] = sanitized
+            else settings.remove(KEY_PHOTO)
+        }
+
+    var hasSubordinates: Boolean
+        get() = settings.getBoolean(KEY_HAS_SUBORDINATES, false)
+        set(value) { settings[KEY_HAS_SUBORDINATES] = value }
+
+    var subordinatesCount: Int
+        get() = settings.getInt(KEY_SUBORDINATES_COUNT, 0)
+        set(value) { settings[KEY_SUBORDINATES_COUNT] = value }
+
+    var lastSeenMilestonePopupDate: String?
+        get() = settings[KEY_LAST_SEEN_MILESTONE_POPUP_DATE]
+        set(value) {
+            if (value != null) settings[KEY_LAST_SEEN_MILESTONE_POPUP_DATE] = value
+            else settings.remove(KEY_LAST_SEEN_MILESTONE_POPUP_DATE)
         }
 
     fun clear() {

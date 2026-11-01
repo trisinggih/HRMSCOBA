@@ -19,6 +19,7 @@ firebase-bom = "33.6.0"
 security-crypto = "1.1.0-alpha06"
 osmdroid = "6.1.18"
 filekit = "0.8.2"
+play-app-update = "2.1.0"
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -55,6 +56,8 @@ security-crypto = { module = "androidx.security:security-crypto", version.ref = 
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging-ktx" }
 filekit-compose = { module = "io.github.vinceglb:filekit-compose", version.ref = "filekit" }
+play-app-update = { module = "com.google.android.play:app-update", version.ref = "play-app-update" }
+play-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "play-app-update" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

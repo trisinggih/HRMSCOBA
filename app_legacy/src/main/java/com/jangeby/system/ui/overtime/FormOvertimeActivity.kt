@@ -55,15 +55,17 @@ class FormOvertimeActivity : AppCompatActivity() {
         }
 
         binding.tvStartTime.setOnClickListener {
-            val c = Calendar.getInstance()
+            val currentText = binding.tvStartTime.text.toString()
+            val parts = currentText.split(":")
+            val initH = parts.getOrNull(0)?.toIntOrNull() ?: 19
+            val initM = parts.getOrNull(1)?.toIntOrNull() ?: 0
             TimePickerDialog(this, { _, hour, minute ->
-                if (hour < 20 || (hour == 20 && minute < 30)) {
-                    Toast.makeText(this, "Jam mulai lembur minimal pukul 20:30", Toast.LENGTH_SHORT).show()
-                    binding.tvStartTime.text = "20:30"
-                } else {
-                    binding.tvStartTime.text = String.format("%02d:%02d", hour, minute)
+                val timeStr = String.format("%02d:%02d", hour, minute)
+                if (timeStr <= "17:30") {
+                    Toast.makeText(this, "Jam mulai lembur harus lebih dari jam selesai shift", Toast.LENGTH_SHORT).show()
                 }
-            }, 20, 30, true).show()
+                binding.tvStartTime.text = timeStr
+            }, initH, initM, true).show()
         }
 
         binding.tvEndTime.setOnClickListener {
@@ -85,6 +87,11 @@ class FormOvertimeActivity : AppCompatActivity() {
 
             if (date.contains("Pilih") || start.contains("Pilih") || end.contains("Pilih") || reason.isEmpty()) {
                 Toast.makeText(this, "Mohon lengkapi semua data", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (start <= "17:30") {
+                Toast.makeText(this, "Jam mulai lembur harus lebih dari jam selesai shift", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 

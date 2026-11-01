@@ -12,13 +12,41 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <queries>
+        <package android:name="com.lexa.fakegps" />
+        <package android:name="com.incorporateapps.fakegps" />
+        <package android:name="com.incorporateapps.fakegps_route" />
+        <package android:name="com.rosteam.gpsemulator" />
+        <package android:name="ru.gavrikov.mocklocations" />
+        <package android:name="com.fakegps.mock" />
+        <package android:name="com.location.changer" />
+        <package android:name="com.gsmartstudio.fakegps" />
+        <package android:name="com.marlon.floating.fake.location" />
+        <package android:name="com.dreams.mocklocation" />
+        <package android:name="com.fake.gps.location" />
+        <package android:name="com.fly.gps" />
+        <package android:name="com.ninja.gmaps" />
+        <package android:name="com.app.fakegps" />
+        <package android:name="com.theappninjas.fakegpsjoystick" />
+        <package android:name="com.marlove.mockgps" />
+        <package android:name="com.hopeway.fakegps" />
+        <package android:name="com.blackout.fakegps" />
+        <package android:name="cl.santander.fakegps" />
+        <package android:name="com.mock.location" />
+        <package android:name="com.pe.fakegps" />
+        <package android:name="com.excelliance.dualaid" />
+        <package android:name="com.lbe.parallel" />
+        <package android:name="com.parallel.space" />
+    </queries>
+
     <application
         android:name=".HRMSApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_jangebynew"
         android:roundIcon="@mipmap/ic_jangebynew_round"
-        android:label="HRMS"
+        android:label="@string/app_name"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.ExtHRMS">
         
         <activity

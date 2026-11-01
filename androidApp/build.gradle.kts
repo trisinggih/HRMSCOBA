@@ -22,26 +22,26 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
+            implementation(libs.play.app.update)
+            implementation(libs.play.app.update.ktx)
         }
     }
 }
 
 android {
     namespace = "com.jangeby.system"
-    compileSdk = 35
+    compileSdk = 36
 
     sourceSets["main"].manifest.srcFile("src/main/AndroidManifest.xml")
     sourceSets["main"].res.srcDirs("src/main/res")
     sourceSets["main"].resources.srcDirs("src/main/resources")
-
     defaultConfig {
         applicationId = "com.jangeby.system"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
-        versionName = "2.0.0"
+        targetSdk = 36
+        versionCode = 13
+        versionName = "2.1.0"
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false

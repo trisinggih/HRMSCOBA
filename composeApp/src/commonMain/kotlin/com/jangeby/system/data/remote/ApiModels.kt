@@ -2,6 +2,7 @@ package com.jangeby.system.data.remote
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -13,7 +14,10 @@ data class ApiResponse<T>(
     val success: Boolean = false,
     val status: String? = null,
     val message: String? = null,
-    val data: T? = null
+    val data: T? = null,
+    @SerialName("has_subordinates") val hasSubordinates: Boolean? = null,
+    @SerialName("can_request_assets") val canRequestAssets: Boolean? = null,
+    @SerialName("subordinates_count") val subordinatesCount: Int? = null
 ) {
     val isSuccess: Boolean get() = success || status == "success" || data != null
 }
@@ -75,6 +79,34 @@ data class LoginData(
 )
 
 @Serializable
+data class RegisterRequest(
+    val name: String,
+    val email: String,
+    val phone: String? = null,
+    val password: String,
+    @SerialName("password_confirmation") val passwordConfirmation: String
+)
+
+@Serializable
+data class RegisterResponseData(
+    val email: String? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class VerifyOtpRequest(
+    val email: String,
+    val otp: String,
+    @SerialName("device_name") val deviceName: String = "Mobile",
+    @SerialName("device_id") val deviceId: String? = null
+)
+
+@Serializable
+data class ResendOtpRequest(
+    val email: String
+)
+
+@Serializable
 data class EmployeeProfile(
     val id: Long,
     @SerialName("employee_id") val employeeId: String? = null,
@@ -90,10 +122,27 @@ data class EmployeeProfile(
     val division: String? = null,
     val department: String? = null,
     @SerialName("can_clock_in_anywhere") val canClockInAnywhere: Boolean = false,
+    @SerialName("has_subordinates") val hasSubordinates: Boolean = false,
+    @SerialName("subordinates_count") val subordinatesCount: Int = 0,
     @SerialName("photo_url") val photoUrl: String? = null,
+    @SerialName("signature_url") val signatureUrl: String? = null,
     val documents: List<EmployeeDocument>? = null,
     val educations: List<EmployeeEducation>? = null,
     val trainings: List<EmployeeTraining>? = null
+)
+
+@Serializable
+data class EmployeeSignatureResponse(
+    val id: Long? = null,
+    @SerialName("signature_url") val signatureUrl: String? = null,
+    @SerialName("strokes_data") val strokesData: String? = null,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class SaveSignatureRequest(
+    @SerialName("signature_base64") val signatureBase64: String,
+    @SerialName("strokes_data") val strokesData: String? = null
 )
 
 @Serializable
@@ -223,7 +272,8 @@ data class ShiftItem(
     val id: Long,
     val name: String? = null,
     @SerialName("clock_in") val startTime: String? = null,
-    @SerialName("clock_out") val endTime: String? = null
+    @SerialName("clock_out") val endTime: String? = null,
+    @SerialName("cross_midnight") val crossMidnight: Boolean? = null
 )
 
 @Serializable
@@ -308,6 +358,63 @@ data class AnnouncementData(
     @SerialName("is_read") var isRead: Boolean = false
 )
 
+// ===================== MILESTONES & WISHES =====================
+@Serializable
+data class MilestoneResponseData(
+    val month: Int? = null,
+    val year: Int? = null,
+    @SerialName("today_count") val todayCount: Int = 0,
+    @SerialName("total_milestones") val totalMilestones: Int = 0,
+    @SerialName("my_milestone_today") val myMilestoneToday: MilestoneItemData? = null,
+    val milestones: List<MilestoneItemData> = emptyList()
+)
+
+@Serializable
+data class MilestoneItemData(
+    val id: String,
+    val type: String, // "birthday" or "work_anniversary"
+    @SerialName("employee_id") val employeeId: Long,
+    @SerialName("employee_name") val employeeName: String,
+    val nickname: String? = null,
+    @SerialName("photo_url") val photoUrl: String? = null,
+    @SerialName("position_name") val positionName: String? = null,
+    @SerialName("department_name") val departmentName: String? = null,
+    @SerialName("branch_name") val branchName: String? = null,
+    @SerialName("event_date") val eventDate: String? = null,
+    @SerialName("event_day") val eventDay: Int = 0,
+    @SerialName("event_month") val eventMonth: Int = 0,
+    @SerialName("formatted_date") val formattedDate: String? = null,
+    @SerialName("is_today") val isToday: Boolean = false,
+    @SerialName("days_until") val daysUntil: Int = 0,
+    @SerialName("years_count") val yearsCount: Int = 0,
+    @SerialName("badge_title") val badgeTitle: String? = null,
+    @SerialName("milestone_year") val milestoneYear: Int = 0,
+    @SerialName("wishes_count") var wishesCount: Int = 0,
+    @SerialName("has_wished") var hasWished: Boolean = false,
+    @SerialName("recent_wishes") val recentWishes: List<MilestoneWishData> = emptyList()
+)
+
+@Serializable
+data class MilestoneWishData(
+    val id: Long,
+    @SerialName("sender_id") val senderId: Long,
+    @SerialName("sender_name") val senderName: String,
+    @SerialName("sender_nickname") val senderNickname: String? = null,
+    @SerialName("sender_photo_url") val senderPhotoUrl: String? = null,
+    val message: String,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("time_ago") val timeAgo: String? = null,
+    @SerialName("is_mine") val isMine: Boolean = false
+)
+
+@Serializable
+data class SendMilestoneWishRequest(
+    @SerialName("celebrated_employee_id") val celebratedEmployeeId: Long,
+    @SerialName("milestone_type") val milestoneType: String,
+    @SerialName("milestone_year") val milestoneYear: Int,
+    val message: String
+)
+
 // ===================== APPROVAL =====================
 @Serializable
 data class ApprovalWorkflow(
@@ -321,6 +428,7 @@ data class ApprovalStep(
     val id: Long,
     val order: Int? = null,
     @SerialName("approver_type") val approverType: String? = null,
+    @SerialName("approver_id") val approverId: Long? = null,
     @SerialName("approver_name") val approverName: String? = null,
     @SerialName("expected_approver_name") val expectedApproverName: String? = null,
     @SerialName("is_optional") val isOptional: Boolean? = null
@@ -330,6 +438,7 @@ data class ApprovalStep(
 data class ApprovalLog(
     val id: Long,
     @SerialName("approval_step_id") val stepId: Long? = null,
+    @SerialName("step_order") val stepOrder: Int? = null,
     val action: String? = null,
     @SerialName("approver_name") val approverName: String? = null,
     val note: String? = null,
@@ -362,16 +471,19 @@ data class ApprovalItem(
         get() = payload as? JsonObject
 
     val moduleLabel: String
-        get() = when (module?.lowercase()) {
+        get() = when (module?.lowercase()?.trim()) {
             "leave" -> "Cuti"
-            "sick_leave" -> "Cuti Sakit"
+            "sick_leave", "sick" -> "Sakit"
+            "late", "late_request", "late_reason", "keterlambatan" -> "Terlambat"
             "permission", "permit" -> "Izin"
             "overtime" -> "Lembur"
             "attendance_correction" -> "Koreksi Absen"
             "shift_exchange", "shift_swap" -> "Tukar Shift"
             "workday_swap" -> "Tukar Hari"
-            "loan_request", "kasbon" -> "Kasbon"
-            "reimbursement" -> "Klaim/Reimburse"
+            "loan_request", "kasbon", "loan" -> "Kasbon"
+            "reimbursement", "reimburse" -> "Reimburse"
+            "asset_request", "asset", "permintaan_aset" -> "Pengajuan Aset"
+            "employee_mutations", "mutation", "employee_mutation", "mutasi" -> "Surat Mutasi"
             else -> module?.replaceFirstChar { it.uppercase() }?.replace("_", " ") ?: "Pengajuan"
         }
 
@@ -380,14 +492,97 @@ data class ApprovalItem(
             val p = payloadObject
             val info = StringBuilder()
             val leaveType = p?.get("leave_type")?.jsonPrimitive?.contentOrNull
+            val startDate = p?.get("start_date")?.jsonPrimitive?.contentOrNull
+            val endDate = p?.get("end_date")?.jsonPrimitive?.contentOrNull
+            val days = p?.get("total_days")?.jsonPrimitive?.contentOrNull
+
             if (!leaveType.isNullOrEmpty()) {
                 info.append("Cuti: $leaveType\n")
-                val sd = p["start_date"]?.jsonPrimitive?.contentOrNull?.take(10)
-                val ed = p["end_date"]?.jsonPrimitive?.contentOrNull?.take(10)
-                val days = p["total_days"]?.jsonPrimitive?.contentOrNull
-                if (sd != null && ed != null) {
-                    info.append("Tanggal: $sd s/d $ed ($days Hari)\n")
+            }
+
+            val permType = p?.get("type")?.jsonPrimitive?.contentOrNull
+            val isExitPermit = permType in listOf("out_of_office", "izin_keluar")
+            val startTime = p?.get("start_time")?.jsonPrimitive?.contentOrNull
+                ?: p?.get("requested_start_time")?.jsonPrimitive?.contentOrNull
+            val endTime = p?.get("end_time")?.jsonPrimitive?.contentOrNull
+                ?: p?.get("requested_end_time")?.jsonPrimitive?.contentOrNull
+
+            val effectiveStart = startDate ?: p?.get("date")?.jsonPrimitive?.contentOrNull
+            val effectiveEnd = endDate ?: effectiveStart
+            val isMultiDay = !effectiveEnd.isNullOrBlank() && !effectiveStart.isNullOrBlank() && effectiveEnd.take(10) != effectiveStart.take(10)
+
+            if (!effectiveStart.isNullOrEmpty()) {
+                val sdFmt = com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(effectiveStart)
+                val edFmt = if (!effectiveEnd.isNullOrEmpty()) com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(effectiveEnd) else null
+                val dayText = if (!days.isNullOrEmpty()) " ($days Hari)" else ""
+                val sTime = startTime?.take(5)
+                val eTime = endTime?.take(5)
+                val timeStr = if (!isMultiDay && isExitPermit && !sTime.isNullOrEmpty() && !eTime.isNullOrEmpty()) {
+                    " ($sTime - $eTime)"
+                } else ""
+                val dateText = if (isMultiDay && edFmt != null) {
+                    "$sdFmt s/d $edFmt"
+                } else {
+                    sdFmt
                 }
+                info.append("Tanggal: $dateText$dayText$timeStr\n")
+            }
+
+            val isAsset = module?.lowercase()?.trim() in listOf("asset_request", "asset", "permintaan_aset")
+            if (isAsset) {
+                val itemName = p?.get("item_name")?.jsonPrimitive?.contentOrNull
+                val qty = p?.get("quantity")?.jsonPrimitive?.contentOrNull
+                val remark = (p?.get("notes")?.jsonPrimitive?.contentOrNull
+                    ?: p?.get("note")?.jsonPrimitive?.contentOrNull
+                    ?: p?.get("remark")?.jsonPrimitive?.contentOrNull
+                    ?: p?.get("specifications")?.jsonPrimitive?.contentOrNull)
+                val purpose = p?.get("purpose")?.jsonPrimitive?.contentOrNull
+
+                if (!itemName.isNullOrBlank()) {
+                    val qtyStr = if (!qty.isNullOrBlank()) " ($qty unit)" else ""
+                    info.append("Barang: $itemName$qtyStr\n")
+                }
+                if (!purpose.isNullOrBlank()) {
+                    info.append("Tujuan: $purpose\n")
+                }
+                if (!remark.isNullOrBlank()) {
+                    info.append("Keterangan: $remark")
+                } else if (purpose.isNullOrBlank() && itemName.isNullOrBlank()) {
+                    info.append("Pengajuan pengadaan / perbaikan aset")
+                }
+                return info.toString().trim()
+            }
+
+            val isMutation = module?.lowercase()?.trim() in listOf("employee_mutations", "mutation", "employee_mutation", "mutasi")
+            if (isMutation) {
+                val memoNumber = p?.get("memo_number")?.jsonPrimitive?.contentOrNull
+                val mutType = p?.get("mutation_type")?.jsonPrimitive?.contentOrNull ?: p?.get("type")?.jsonPrimitive?.contentOrNull
+                val effDate = p?.get("effective_date")?.jsonPrimitive?.contentOrNull
+                val oldPos = p?.get("old_position_name")?.jsonPrimitive?.contentOrNull
+                val newPos = p?.get("new_position_name")?.jsonPrimitive?.contentOrNull
+                val oldBranch = p?.get("old_branch_name")?.jsonPrimitive?.contentOrNull ?: p?.get("old_company_name")?.jsonPrimitive?.contentOrNull
+                val newBranch = p?.get("new_branch_name")?.jsonPrimitive?.contentOrNull ?: p?.get("new_company_name")?.jsonPrimitive?.contentOrNull
+                val reason = p?.get("reason")?.jsonPrimitive?.contentOrNull
+
+                val typeLabel = if (mutType?.equals("promosi", ignoreCase = true) == true) "Promosi (Kenaikan Jabatan)" else "Mutasi (Rotasi / Transfer)"
+                info.append("Tipe: $typeLabel\n")
+                if (!memoNumber.isNullOrEmpty()) {
+                    info.append("No: $memoNumber\n")
+                }
+                if (!oldPos.isNullOrEmpty() || !newPos.isNullOrEmpty()) {
+                    info.append("Jabatan: ${oldPos ?: "-"} ➔ ${newPos ?: "-"}\n")
+                }
+                if (!oldBranch.isNullOrEmpty() || !newBranch.isNullOrEmpty()) {
+                    info.append("Penempatan: ${oldBranch ?: "-"} ➔ ${newBranch ?: "-"}\n")
+                }
+                if (!effDate.isNullOrEmpty()) {
+                    val effFmt = com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(effDate)
+                    info.append("Tgl Efektif: $effFmt\n")
+                }
+                if (!reason.isNullOrEmpty()) {
+                    info.append("Alasan: $reason")
+                }
+                return info.toString().trim()
             }
 
             val amount = p?.get("amount")?.jsonPrimitive?.contentOrNull
@@ -396,13 +591,28 @@ data class ApprovalItem(
                 info.append("Tipe: $type\n")
             }
             if (!amount.isNullOrEmpty()) {
-                info.append("Nominal: Rp $amount\n")
+                val formattedAmount = formatNominalRupiah(amount)
+                info.append("Nominal: $formattedAmount\n")
             }
 
             val workDate = p?.get("work_date")?.jsonPrimitive?.contentOrNull
             val swapToDate = p?.get("swap_to_date")?.jsonPrimitive?.contentOrNull
             if (!workDate.isNullOrEmpty() && !swapToDate.isNullOrEmpty()) {
-                info.append("Tukar: $workDate -> $swapToDate\n")
+                val wFmt = com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(workDate)
+                val sFmt = com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(swapToDate)
+                info.append("Tukar: $wFmt -> $sFmt\n")
+            }
+
+            val swapDate = p?.get("swap_date")?.jsonPrimitive?.contentOrNull
+            if (!swapDate.isNullOrEmpty() && effectiveStart.isNullOrEmpty()) {
+                val swFmt = com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(swapDate)
+                info.append("Tanggal: $swFmt\n")
+            }
+
+            val tenor = p?.get("installment_months")?.jsonPrimitive?.contentOrNull
+                ?: p?.get("tenor")?.jsonPrimitive?.contentOrNull
+            if (!tenor.isNullOrEmpty() && tenor != "0") {
+                info.append("Tenor: $tenor Bulan\n")
             }
 
             val reason = (p?.get("reason")?.jsonPrimitive?.contentOrNull
@@ -415,12 +625,135 @@ data class ApprovalItem(
 
             return info.toString().trim()
         }
+
+    val isAssetRequest: Boolean
+        get() = module?.lowercase()?.trim() in listOf("asset_request", "asset", "permintaan_aset")
+
+    val assetForWho: String?
+        get() = payloadObject?.get("for_who")?.jsonPrimitive?.contentOrNull
+
+    val assetPlacement: String?
+        get() = payloadObject?.get("placement")?.jsonPrimitive?.contentOrNull
+
+    val assetPurpose: String?
+        get() = payloadObject?.get("purpose")?.jsonPrimitive?.contentOrNull
+
+    val assetRequestType: String?
+        get() = payloadObject?.get("request_type")?.jsonPrimitive?.contentOrNull
+
+    val assetTotalEstimatedPrice: Double?
+        get() {
+            val ep = payloadObject?.get("estimated_price")?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+            if (ep != null && ep > 0) return ep
+            val sum = assetItems.sumOf { it.estimatedPrice ?: 0.0 }
+            return if (sum > 0) sum else null
+        }
+
+    val assetNotes: String?
+        get() = payloadObject?.get("notes")?.jsonPrimitive?.contentOrNull
+            ?: payloadObject?.get("specifications")?.jsonPrimitive?.contentOrNull
+
+    val assetItems: List<AssetApprovalDetailItem>
+        get() {
+            val p = payloadObject ?: return emptyList()
+            val itemsJson = p["items"] as? JsonArray
+            if (itemsJson != null && itemsJson.isNotEmpty()) {
+                return itemsJson.mapNotNull { element ->
+                    val obj = element as? JsonObject ?: return@mapNotNull null
+                    AssetApprovalDetailItem(
+                        id = obj["id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull(),
+                        itemName = obj["item_name"]?.jsonPrimitive?.contentOrNull,
+                        itemSize = obj["item_size"]?.jsonPrimitive?.contentOrNull,
+                        quantity = obj["quantity"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1,
+                        placement = obj["placement"]?.jsonPrimitive?.contentOrNull,
+                        unitPrice = obj["unit_price"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                        estimatedPrice = obj["estimated_price"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                        notes = obj["notes"]?.jsonPrimitive?.contentOrNull
+                    )
+                }
+            }
+            val singleName = p["item_name"]?.jsonPrimitive?.contentOrNull
+            if (!singleName.isNullOrBlank()) {
+                return listOf(
+                    AssetApprovalDetailItem(
+                        itemName = singleName,
+                        itemSize = p["item_size"]?.jsonPrimitive?.contentOrNull,
+                        quantity = p["quantity"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 1,
+                        placement = p["placement"]?.jsonPrimitive?.contentOrNull ?: p["for_who"]?.jsonPrimitive?.contentOrNull,
+                        unitPrice = p["unit_price"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                        estimatedPrice = p["estimated_price"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull(),
+                        notes = p["notes"]?.jsonPrimitive?.contentOrNull ?: p["specifications"]?.jsonPrimitive?.contentOrNull
+                    )
+                )
+            }
+            return emptyList()
+        }
+
+    private fun formatNominalRupiah(amountStr: String?): String {
+        if (amountStr.isNullOrBlank()) return ""
+        return try {
+            val cleanStr = amountStr.replace(",", "")
+            val doubleVal = cleanStr.toDoubleOrNull()
+            if (doubleVal != null) {
+                val rounded = doubleVal.toLong()
+                val formatted = rounded.toString().reversed().chunked(3).joinToString(".").reversed()
+                "Rp $formatted"
+            } else {
+                "Rp $amountStr"
+            }
+        } catch (e: Exception) {
+            "Rp $amountStr"
+        }
+    }
+
+    val isMutation: Boolean
+        get() = module?.lowercase()?.trim() in listOf("employee_mutations", "mutation", "employee_mutation", "mutasi")
+
+    val mutationType: String?
+        get() = payloadObject?.get("mutation_type")?.jsonPrimitive?.contentOrNull
+            ?: payloadObject?.get("type")?.jsonPrimitive?.contentOrNull
+
+    val mutationMemoNumber: String?
+        get() = payloadObject?.get("memo_number")?.jsonPrimitive?.contentOrNull
+
+    val mutationOldPosition: String?
+        get() = payloadObject?.get("old_position_name")?.jsonPrimitive?.contentOrNull
+
+    val mutationNewPosition: String?
+        get() = payloadObject?.get("new_position_name")?.jsonPrimitive?.contentOrNull
+
+    val mutationOldBranch: String?
+        get() = payloadObject?.get("old_branch_name")?.jsonPrimitive?.contentOrNull
+            ?: payloadObject?.get("old_company_name")?.jsonPrimitive?.contentOrNull
+
+    val mutationNewBranch: String?
+        get() = payloadObject?.get("new_branch_name")?.jsonPrimitive?.contentOrNull
+            ?: payloadObject?.get("new_company_name")?.jsonPrimitive?.contentOrNull
+
+    val mutationEffectiveDate: String?
+        get() = payloadObject?.get("effective_date")?.jsonPrimitive?.contentOrNull
+
+    val mutationReason: String?
+        get() = payloadObject?.get("reason")?.jsonPrimitive?.contentOrNull
 }
 
 @Serializable
 data class ActionApprovalRequest(
     val note: String? = null,
-    val tenor: String? = null
+    val tenor: String? = null,
+    @SerialName("approved_item_ids") val approvedItemIds: List<Long>? = null
+)
+
+@Serializable
+data class AssetApprovalDetailItem(
+    val id: Long? = null,
+    @SerialName("item_name") val itemName: String? = null,
+    @SerialName("item_size") val itemSize: String? = null,
+    val quantity: Int? = 1,
+    val placement: String? = null,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("estimated_price") val estimatedPrice: Double? = null,
+    val notes: String? = null
 )
 
 @Serializable
@@ -500,6 +833,156 @@ data class AssetItem(
     @SerialName("inventory_number") val inventoryNumber: String? = null
 )
 
+@Serializable
+data class AssetApprovalStageApprover(
+    val id: Long? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class AssetRequestApprovalItem(
+    val id: Long? = null,
+    val level: Int? = null,
+    @SerialName("role_name") val roleName: String? = null,
+    @SerialName("approver_id") val approverId: Long? = null,
+    val status: String? = null,
+    val notes: String? = null,
+    @SerialName("action_date") val actionDate: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val approver: AssetApprovalStageApprover? = null
+)
+
+@Serializable
+data class AssetRequestDetailItem(
+    val id: Long? = null,
+    @SerialName("item_name") val itemName: String? = null,
+    @SerialName("item_size") val itemSize: String? = null,
+    val quantity: Int? = 1,
+    val placement: String? = null,
+    @SerialName("unit_price") val rawUnitPrice: JsonElement? = null,
+    @SerialName("estimated_price") val rawEstimatedPrice: JsonElement? = null,
+    val notes: String? = null
+) {
+    val unitPrice: Double?
+        get() = try {
+            rawUnitPrice?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        } catch (_: Exception) {
+            null
+        }
+
+    val estimatedPrice: Double?
+        get() = try {
+            rawEstimatedPrice?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        } catch (_: Exception) {
+            null
+        }
+}
+
+@Serializable
+data class AssetRequestItem(
+    val id: Long,
+    @SerialName("request_type") val requestType: String? = "kebutuhan_rutin",
+    @SerialName("item_name") val itemName: String,
+    @SerialName("item_size") val itemSize: String? = null,
+    @SerialName("for_who") val forWho: String? = null,
+    val placement: String? = null,
+    val purpose: String,
+    val quantity: Int? = 1,
+    @SerialName("estimated_price") val rawEstimatedPrice: JsonElement? = null,
+    val specifications: String? = null,
+    val notes: String? = null,
+    @SerialName("admin_notes") val adminNotes: String? = null,
+    @SerialName("rejection_reason") val rejectionReason: String? = null,
+    val status: String,
+    @SerialName("purchased_at") val purchasedAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val asset: AssetItem? = null,
+    val items: List<AssetRequestDetailItem>? = null,
+    val approvals: List<AssetRequestApprovalItem>? = null
+) {
+    val estimatedPrice: Double?
+        get() = try {
+            rawEstimatedPrice?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        } catch (_: Exception) {
+            null
+        }
+
+    val allItems: List<AssetRequestDetailItem>
+        get() {
+            if (!items.isNullOrEmpty()) return items
+            return listOf(
+                AssetRequestDetailItem(
+                    itemName = itemName,
+                    itemSize = itemSize,
+                    quantity = quantity ?: 1,
+                    placement = forWho,
+                    rawEstimatedPrice = rawEstimatedPrice,
+                    notes = notes ?: specifications
+                )
+            )
+        }
+
+    val totalEstimatedPrice: Double?
+        get() {
+            val ep = estimatedPrice
+            if (ep != null && ep > 0) return ep
+            val sum = allItems.sumOf { it.estimatedPrice ?: 0.0 }
+            return if (sum > 0) sum else null
+        }
+
+    val currentApprovalProgressSummary: String
+        get() {
+            val apps = approvals
+            if (apps.isNullOrEmpty()) {
+                return when (status.lowercase()) {
+                    "approved" -> "Persetujuan Selesai"
+                    "purchased" -> "Barang Telah Dibeli"
+                    "rejected" -> "Pengajuan Ditolak"
+                    else -> "Menunggu Persetujuan"
+                }
+            }
+            if (status.lowercase() == "approved" || status.lowercase() == "purchased") {
+                return "Persetujuan Selesai (${apps.size}/${apps.size} Tahap)"
+            }
+            if (status.lowercase() == "rejected") {
+                val rejectedStage = apps.find { it.status.equals("rejected", ignoreCase = true) }
+                return if (rejectedStage != null) "Ditolak pada ${rejectedStage.roleName ?: ("Tahap " + (rejectedStage.level ?: ""))}" else "Pengajuan Ditolak"
+            }
+            val pendingStage = apps.find { it.status.equals("pending", ignoreCase = true) }
+            val approvedCount = apps.count { it.status.equals("approved", ignoreCase = true) }
+            if (pendingStage != null) {
+                val role = pendingStage.roleName ?: ("Tahap " + (pendingStage.level ?: ""))
+                val approverName = pendingStage.approver?.name?.let { " ($it)" } ?: ""
+                return "Menunggu: $role$approverName"
+            }
+            return "$approvedCount/${apps.size} Tahap Selesai"
+        }
+}
+
+@Serializable
+data class AssetRequestItemCreate(
+    @SerialName("item_name") val itemName: String,
+    @SerialName("item_size") val itemSize: String? = null,
+    val quantity: Int = 1,
+    val placement: String? = null,
+    @SerialName("unit_price") val unitPrice: Double? = null,
+    @SerialName("estimated_price") val estimatedPrice: Double? = null,
+    val notes: String? = null
+)
+
+@Serializable
+data class AssetRequestCreate(
+    @SerialName("request_type") val requestType: String = "kebutuhan_rutin",
+    @SerialName("item_name") val itemName: String? = null,
+    @SerialName("item_size") val itemSize: String? = null,
+    @SerialName("for_who") val forWho: String? = null,
+    val purpose: String,
+    val quantity: Int = 1,
+    @SerialName("estimated_price") val estimatedPrice: Double? = null,
+    val specifications: String? = null,
+    val items: List<AssetRequestItemCreate>? = null
+)
+
 // ===================== OVERTIME =====================
 @Serializable
 data class OvertimeRequestItem(
@@ -575,6 +1058,8 @@ data class PermitRequestItem(
     val id: Long,
     val type: String? = null,
     val date: String? = null,
+    @SerialName("start_date") val startDate: String? = null,
+    @SerialName("end_date") val endDate: String? = null,
     @SerialName("start_time") val startTime: String? = null,
     @SerialName("end_time") val endTime: String? = null,
     val reason: String? = null,
@@ -705,8 +1190,20 @@ data class PayslipItem(
     val attendance: PayslipAttendance? = null,
     val period: PayslipPeriod? = null,
     val details: List<PayslipDetailItem>? = null,
+    val prorate: PayslipProrate? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class PayslipProrate(
+    @SerialName("is_prorated") val isProrated: Boolean? = false,
+    @SerialName("join_date") val joinDate: String? = null,
+    @SerialName("working_days") val workingDays: Int? = null,
+    @SerialName("month_working_days") val monthWorkingDays: Int? = null,
+    val ratio: Double? = null,
+    val formula: String? = null,
+    val note: String? = null
 )
 
 @Serializable

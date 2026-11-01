@@ -42,7 +42,7 @@ fun SplashScreen(
     val textAlpha = remember { Animatable(0f) }
     val textTranslationY = remember { Animatable(20f) }
 
-    var companyLogoUrl by remember { mutableStateOf(appSettings.companyLogoUrl) }
+    var companyLogoUrl by remember { mutableStateOf(ApiClient.sanitizeImageUrl(appSettings.companyLogoUrl)) }
     var companyName by remember { mutableStateOf(appSettings.companyName ?: "JANGEBY") }
 
     LaunchedEffect(Unit) {
@@ -55,7 +55,7 @@ fun SplashScreen(
                     val apiResponse: ApiResponse<CompanyLogoData> = response.body()
                     if (apiResponse.success && apiResponse.data != null) {
                         apiResponse.data.logo?.let { logo ->
-                            val finalUrl = if (logo.startsWith("http://")) logo.replaceFirst("http://", "https://") else logo
+                            val finalUrl = ApiClient.sanitizeImageUrl(logo)
                             companyLogoUrl = finalUrl
                             appSettings.companyLogoUrl = finalUrl
                         }

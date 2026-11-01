@@ -4,16 +4,21 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,17 +28,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jangeby.system.data.local.AppSettings
+import com.jangeby.system.data.remote.ApiClient
+import com.jangeby.system.data.remote.ApiResponse
 import com.jangeby.system.data.remote.CalendarItem
+import com.jangeby.system.data.remote.MilestoneItemData
+import com.jangeby.system.data.remote.MilestoneResponseData
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
+import io.ktor.client.call.body
+import io.ktor.client.request.get
 import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import com.jangeby.system.utils.DateTimeUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AttendanceScreen(
     onNavigateBack: () -> Unit,
     onNavigateToMap: (action: String) -> Unit = {},
-    viewModel: AttendanceViewModel = koinInject()
+    onNavigateToOvertime: () -> Unit = {},
+    onNavigateToAnnouncement: (initialTab: Int) -> Unit = {},
+    viewModel: AttendanceViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val calendarItems by viewModel.calendarItems.collectAsState()
@@ -42,12 +58,42 @@ fun AttendanceScreen(
     val isLoadingData by viewModel.isLoadingData.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val appSettings: AppSettings = koinInject()
     var showLateReasonSheet by remember { mutableStateOf(false) }
     var selectedLateDate by remember { mutableStateOf("") }
     var currentLateReasonInput by remember { mutableStateOf("") }
+    var showMilestonePopup by remember { mutableStateOf(false) }
+    var todayMilestonesForPopup by remember { mutableStateOf<List<MilestoneItemData>>(emptyList()) }
+
+    // Pull-to-refresh state
+    val pullRefreshState = rememberPullToRefreshState()
+    val isRefreshing = isLoadingData
 
     LaunchedEffect(Unit) {
         viewModel.loadShiftCalendar()
+
+        // Check milestone celebrations today (>= 07:00, show once per day)
+        val now = DateTimeUtils.nowInJakarta()
+        val todayStr = DateTimeUtils.todayDateString()
+        val isAfter7Am = now.hour >= 7
+        val alreadyShownToday = (appSettings.lastSeenMilestonePopupDate == todayStr)
+
+        if (isAfter7Am && !alreadyShownToday) {
+            try {
+                val client = ApiClient.create()
+                val mileRes = client.get(ApiClient.BASE_URL + "employee/milestones")
+                if (mileRes.status.value in 200..299) {
+                    val mileData: ApiResponse<MilestoneResponseData> = mileRes.body()
+                    val todayList = mileData.data?.milestones?.filter { it.isToday } ?: emptyList()
+                    if (todayList.isNotEmpty()) {
+                        todayMilestonesForPopup = todayList
+                        showMilestonePopup = true
+                    }
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
     }
 
     LaunchedEffect(state) {
@@ -65,21 +111,9 @@ fun AttendanceScreen(
         }
     }
 
-    // Default mock list fallback if backend calendar is loading or empty
-    val mockCalendar = remember {
-        listOf(
-            CalendarItem(date = "2026-10-05", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00"), attendance = com.jangeby.system.data.remote.AttendanceDetail(1, "08:02:00", "17:05:00", lateMinutes = 0, status = "present")),
-            CalendarItem(date = "2026-10-06", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00"), attendance = com.jangeby.system.data.remote.AttendanceDetail(2, "08:14:00", "17:00:00", lateMinutes = 14, status = "late")),
-            CalendarItem(date = "2026-10-07", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-08", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-09", isHoliday = false, shift = com.jangeby.system.data.remote.ShiftItem(1, "Shift Pagi", "08:00:00", "17:00:00")),
-            CalendarItem(date = "2026-10-10", isHoliday = true, shift = null),
-            CalendarItem(date = "2026-10-11", isHoliday = true, shift = null)
-        )
-    }
-
-    val displayCalendar = if (calendarItems.isNotEmpty()) calendarItems else mockCalendar
-    val activeToday = todayItem ?: displayCalendar.find { it.date == todayDateStr } ?: displayCalendar.firstOrNull()
+    // Default kosong — tidak ada mock data, biarkan loading terlihat jelas
+    val displayCalendar = calendarItems
+    val activeToday = todayItem
 
     Scaffold(
         topBar = {
@@ -88,14 +122,23 @@ fun AttendanceScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color(0xFFF8FAFC)
     ) { padding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.loadShiftCalendar() },
+            state = pullRefreshState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 32.dp)
+                .padding(padding)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
             // Header Banner Shift Hari Ini (bindTodayStatus logic)
             item {
+                val hasUnclosed = calendarItems.any {
+                    it.attendance?.clockIn != null && it.attendance.clockOut.isNullOrBlank() && (it.date ?: "") < todayDateStr
+                }
                 TodayAttendanceHeader(
                     todayItem = activeToday,
                     todayStr = todayDateStr,
@@ -104,11 +147,15 @@ fun AttendanceScreen(
                     onClockOut = { onNavigateToMap("clock_out") },
                     onOvertimeClockIn = { onNavigateToMap("overtime_clock_in") },
                     onOvertimeClockOut = { onNavigateToMap("overtime_clock_out") },
+                    onApplyOvertime = onNavigateToOvertime,
                     onEditLateReason = {
                         selectedLateDate = activeToday?.date ?: todayDateStr
                         currentLateReasonInput = activeToday?.attendance?.lateReason ?: activeToday?.attendance?.notes ?: activeToday?.lateReason ?: ""
                         showLateReasonSheet = true
-                    }
+                    },
+                    hasUnclosedPrevious = hasUnclosed,
+                    onSwitchToToday = { viewModel.switchToToday() },
+                    onSwitchToUnclosed = { viewModel.switchToUnclosedPrevious() }
                 )
             }
 
@@ -128,7 +175,7 @@ fun AttendanceScreen(
                         color = Color(0xFF0F172A)
                     )
                     Text(
-                        text = "Oktober 2026",
+                        text = formatMonthHeader(todayDateStr),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Primary
@@ -137,18 +184,90 @@ fun AttendanceScreen(
             }
 
             // 1-Month Shift Calendar Rows (HistoryAdapter logic)
-            items(displayCalendar) { item ->
-                ShiftCalendarRow(
-                    item = item,
-                    onEditLateReason = {
-                        selectedLateDate = item.date ?: ""
-                        currentLateReasonInput = item.attendance?.lateReason ?: item.attendance?.notes ?: item.lateReason ?: ""
-                        showLateReasonSheet = true
+            if (isLoadingData && displayCalendar.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Primary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Memuat data jadwal...",
+                                fontSize = 14.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
                     }
-                )
+                }
+            } else if (displayCalendar.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFFCBD5E1),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Belum ada data jadwal presensi",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF475569)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Tarik ke bawah untuk memperbarui",
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(displayCalendar) { item ->
+                    ShiftCalendarRow(
+                        item = item,
+                        onEditLateReason = {
+                            selectedLateDate = item.date ?: ""
+                            currentLateReasonInput = item.attendance?.lateReason ?: item.attendance?.notes ?: item.lateReason ?: ""
+                            showLateReasonSheet = true
+                        }
+                    )
+                }
             }
         }
     }
+}
 
     if (showLateReasonSheet) {
         var inputReason by remember { mutableStateOf(currentLateReasonInput) }
@@ -163,7 +282,10 @@ fun AttendanceScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp)
-                    .padding(bottom = 32.dp),
+                    .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(bottom = 36.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -174,7 +296,7 @@ fun AttendanceScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Tanggal: $selectedLateDate",
+                    text = "Tanggal: $selectedLateDate • Akan diinfokan ke atasan",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -214,6 +336,21 @@ fun AttendanceScreen(
             }
         }
     }
+
+    if (showMilestonePopup && todayMilestonesForPopup.isNotEmpty()) {
+        MilestonePopupDialog(
+            milestones = todayMilestonesForPopup,
+            onDismiss = {
+                showMilestonePopup = false
+                appSettings.lastSeenMilestonePopupDate = DateTimeUtils.todayDateString()
+            },
+            onNavigateToWishes = {
+                showMilestonePopup = false
+                appSettings.lastSeenMilestonePopupDate = DateTimeUtils.todayDateString()
+                onNavigateToAnnouncement(1)
+            }
+        )
+    }
 }
 
 @Composable
@@ -225,15 +362,29 @@ fun TodayAttendanceHeader(
     onClockOut: () -> Unit,
     onOvertimeClockIn: () -> Unit,
     onOvertimeClockOut: () -> Unit,
-    onEditLateReason: (() -> Unit)? = null
+    onApplyOvertime: (() -> Unit)? = null,
+    onEditLateReason: (() -> Unit)? = null,
+    hasUnclosedPrevious: Boolean = false,
+    onSwitchToToday: (() -> Unit)? = null,
+    onSwitchToUnclosed: (() -> Unit)? = null
 ) {
-    // Exact bindTodayStatus logic from AttendanceActivity.kt
-    val dateHeaderStr = formatDateHeader(todayItem?.date ?: todayStr)
+    val att = todayItem?.attendance
+    val isCheckedIn = att != null && !att.clockIn.isNullOrBlank()
+    val isCheckedOut = att != null && !att.clockOut.isNullOrBlank()
+
+    val isOvernightOverlap = todayItem?.date != null && todayItem.date != todayStr && isCheckedIn && !isCheckedOut
+    val dateHeaderStr = if (isOvernightOverlap) {
+        "${formatDateHeader(todayItem.date)} • Belum Clock Out"
+    } else {
+        formatDateHeader(todayItem?.date ?: todayStr)
+    }
 
     val tvStatusText = if (todayItem == null) {
         "Belum ada jadwal hari ini."
     } else {
-        val shiftText = todayItem.shift?.name ?: if (todayItem.isHoliday == true) "Libur Nasional" else "Libur/Off"
+        val shiftText = todayItem.shift?.name ?: if (todayItem.isHoliday == true) {
+            if (isCheckedIn) "Masuk di Hari Libur" else "Libur / Off"
+        } else "Libur / Off"
         val sStart = todayItem.shift?.startTime?.take(5) ?: "-"
         val sEnd = todayItem.shift?.endTime?.take(5) ?: "-"
 
@@ -244,12 +395,8 @@ fun TodayAttendanceHeader(
         }
     }
 
-    val att = todayItem?.attendance
-    val clockInStr = att?.clockIn?.take(5) ?: "-"
-    val clockOutStr = att?.clockOut?.take(5) ?: "-"
-
-    val isCheckedIn = att != null && !att.clockIn.isNullOrBlank()
-    val isCheckedOut = att != null && !att.clockOut.isNullOrBlank()
+    val clockInStr = DateTimeUtils.formatTimeOnly(att?.clockIn)
+    val clockOutStr = DateTimeUtils.formatTimeOnly(att?.clockOut)
 
     val hasApprovedOvertime = todayItem?.hasApprovedOvertime == true
     val isOvertimeIn = att != null && !att.overtimeIn.isNullOrBlank()
@@ -257,7 +404,8 @@ fun TodayAttendanceHeader(
 
     var isLate = (att?.lateMinutes ?: 0) > 0
     if (!isLate && att?.clockIn != null && todayItem?.shift?.startTime != null) {
-        if (att.clockIn.take(5) > todayItem.shift.startTime.take(5)) {
+        val inTime = DateTimeUtils.formatTimeOnly(att.clockIn)
+        if (inTime != "-" && inTime > todayItem.shift.startTime.take(5)) {
             isLate = true
         }
     }
@@ -271,7 +419,7 @@ fun TodayAttendanceHeader(
     if (isCheckedOut) {
         showBtnClockIn = false
         showBtnClockOut = false
-        if (hasApprovedOvertime) {
+        if (hasApprovedOvertime || isOvertimeIn || isOvertimeOut) {
             if (isOvertimeOut) {
                 showBtnOvertimeClockIn = false
                 showBtnOvertimeClockOut = false
@@ -287,9 +435,8 @@ fun TodayAttendanceHeader(
         showBtnClockIn = false
         showBtnClockOut = true
     } else {
-        if (todayItem?.shift != null) {
-            showBtnClockIn = true
-        }
+        // Tetap izinkan Clock In meskipun hari ini dijadwalkan Libur/Off
+        showBtnClockIn = true
     }
 
     Card(
@@ -321,7 +468,16 @@ fun TodayAttendanceHeader(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (todayItem == null || (todayItem.shift == null && todayItem.isHoliday != true)) {
+                    if (isLoading && todayItem == null) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Memuat data presensi hari ini...",
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else if (todayItem == null || (todayItem.shift == null && todayItem.isHoliday != true && !isCheckedIn)) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Belum ada jadwal hari ini.",
@@ -330,10 +486,10 @@ fun TodayAttendanceHeader(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                    } else if (todayItem.shift == null && todayItem.isHoliday == true) {
+                    } else if (todayItem.shift == null && todayItem.isHoliday == true && !isCheckedIn) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Libur Nasional",
+                                text = "Libur / Off",
                                 color = Color.White,
                                 fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
@@ -443,6 +599,8 @@ fun TodayAttendanceHeader(
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp))
                     }
                 } else if (showBtnClockIn) {
+                    val isOffDay = todayItem?.shift == null
+                    val btnTitle = if (isOffDay) "CLOCK IN (MASUK LIBUR)" else "CLOCK IN HARI INI"
                     Button(
                         onClick = onClockIn,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
@@ -451,9 +609,19 @@ fun TodayAttendanceHeader(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CLOCK IN HARI INI", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(btnTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    if (hasUnclosedPrevious && onSwitchToUnclosed != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.TextButton(
+                            onClick = onSwitchToUnclosed,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Ada sesi sebelumnya yang belum Clock Out • Beralih", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+                        }
                     }
                 } else if (showBtnClockOut) {
+                    val outBtnTitle = if (isOvernightOverlap) "CLOCK OUT (${formatDateHeader(todayItem?.date ?: "")})" else "CLOCK OUT HARI INI"
                     Button(
                         onClick = onClockOut,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
@@ -462,7 +630,16 @@ fun TodayAttendanceHeader(
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CLOCK OUT HARI INI", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(outBtnTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    if (isOvernightOverlap && onSwitchToToday != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        androidx.compose.material3.TextButton(
+                            onClick = onSwitchToToday,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Lupa Clock Out? Mulai Clock In Hari Ini", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)
+                        }
                     }
                 } else if (showBtnOvertimeClockIn) {
                     Button(
@@ -471,6 +648,8 @@ fun TodayAttendanceHeader(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White)
                     ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("CLOCK IN LEMBUR", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 } else if (showBtnOvertimeClockOut) {
@@ -478,24 +657,45 @@ fun TodayAttendanceHeader(
                         onClick = onOvertimeClockOut,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5B21B6), contentColor = Color.White)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444), contentColor = Color.White)
                     ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("CLOCK OUT LEMBUR", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 } else if (isCheckedOut) {
-                    Surface(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color.White.copy(alpha = 0.2f)
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = if (hasApprovedOvertime && isOvertimeOut) "✓ Presensi & Lembur Hari Ini Selesai" else "✓ Presensi Hari Ini Selesai",
-                            modifier = Modifier.padding(12.dp),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.White.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = if (isOvertimeOut) "✓ Presensi & Lembur Hari Ini Selesai" else "✓ Presensi Hari Ini Selesai",
+                                modifier = Modifier.padding(12.dp),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+
+                        if (!hasApprovedOvertime && !isOvertimeIn && !isOvertimeOut && onApplyOvertime != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = onApplyOvertime,
+                                modifier = Modifier.fillMaxWidth().height(46.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("LEMBUR", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -527,24 +727,31 @@ fun ShiftCalendarRow(
         "${shift.startTime.take(5)} - ${shift.endTime.take(5)}" else "-"
 
     val att = item.attendance
-    val clockInStr = att?.clockIn?.take(5) ?: "-"
+    val clockInStr = DateTimeUtils.formatTimeOnly(att?.clockIn)
 
     val outLabel = "Out: "
-    val clockOutStr = att?.clockOut?.take(5) ?: "-"
+    val clockOutStr = DateTimeUtils.formatTimeOnly(att?.clockOut)
 
-    val statusInfoText = if (isHoliday) "Libur" else (att?.status?.replaceFirstChar { it.uppercase() } ?: "Working Day")
+    val hasClockedIn = att?.clockIn != null
+    val isEffectivelyHoliday = isHoliday && !hasClockedIn
+
+    val statusInfoText = if (isHoliday) {
+        if (hasClockedIn) "Hadir (Libur)" else "Libur"
+    } else {
+        att?.status?.replaceFirstChar { it.uppercase() } ?: "Working Day"
+    }
 
     var isLate = (att?.lateMinutes ?: 0) > 0
     val shiftStartStr = shift?.startTime?.take(5)
-    if (!isLate && clockInStr != "-" && shiftStartStr != null && clockInStr > shiftStartStr) {
+    if (!isLate && !isHoliday && clockInStr != "-" && shiftStartStr != null && clockInStr > shiftStartStr) {
         isLate = true
     }
 
     val finalStatusText = if (isLate) "$statusInfoText (Telat)" else statusInfoText
     val lateRedColor = Color(0xFFFF5252)
 
-    val otIn = att?.overtimeIn?.take(5)
-    val otOut = att?.overtimeOut?.take(5)
+    val otIn = att?.overtimeIn?.let { DateTimeUtils.formatTimeOnly(it).takeIf { t -> t != "-" } }
+    val otOut = att?.overtimeOut?.let { DateTimeUtils.formatTimeOnly(it).takeIf { t -> t != "-" } }
     val hasOvertime = otIn != null || otOut != null
 
     Card(
@@ -574,13 +781,13 @@ fun ShiftCalendarRow(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(if (isHoliday) Color(0xFFF1F5F9) else Color(0xFFE0F2FE)),
+                            .background(if (isEffectivelyHoliday) Color(0xFFF1F5F9) else Color(0xFFE0F2FE)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.DateRange,
                             contentDescription = null,
-                            tint = if (isHoliday) Color(0xFF64748B) else Primary,
+                            tint = if (isEffectivelyHoliday) Color(0xFF64748B) else Primary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
@@ -614,12 +821,12 @@ fun ShiftCalendarRow(
                 // Status Chip with Telat highlighting
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isLate) Color(0xFFFFE4E6) else if (isHoliday) Color(0xFFF1F5F9) else Color(0xFFE0F2FE)
+                    color = if (isLate) Color(0xFFFFE4E6) else if (isEffectivelyHoliday) Color(0xFFF1F5F9) else Color(0xFFE0F2FE)
                 ) {
                     Text(
                         text = finalStatusText,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        color = if (isLate) lateRedColor else if (isHoliday) Color(0xFF64748B) else Primary,
+                        color = if (isLate) lateRedColor else if (isEffectivelyHoliday) Color(0xFF64748B) else Primary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -703,6 +910,18 @@ fun formatDateHeader(dateStr: String?): String {
         val mIdx = parts[1].toIntOrNull() ?: 0
         val mStr = if (mIdx in 1..12) months[mIdx] else parts[1]
         return "${parts[2]} $mStr ${parts[0]}"
+    }
+    return dateStr
+}
+
+fun formatMonthHeader(dateStr: String?): String {
+    if (dateStr.isNullOrBlank()) return ""
+    val parts = dateStr.split("-")
+    if (parts.size >= 2) {
+        val months = listOf("", "Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember")
+        val mIdx = parts[1].toIntOrNull() ?: 0
+        val mStr = if (mIdx in 1..12) months[mIdx] else parts[1]
+        return "$mStr ${parts[0]}"
     }
     return dateStr
 }

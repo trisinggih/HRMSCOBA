@@ -3,6 +3,8 @@ package com.jangeby.system.ui.personal
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -31,13 +33,13 @@ import com.jangeby.system.data.remote.FamilyModel
 import com.jangeby.system.data.remote.FamilyRequest
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonalScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PersonalViewModel = koinInject()
+    viewModel: PersonalViewModel = koinViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Info Pribadi", "Keluarga", "Pendidikan")
@@ -642,7 +644,10 @@ fun FamilyFormDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp),
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
@@ -754,7 +759,10 @@ fun EducationFormDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp),
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(

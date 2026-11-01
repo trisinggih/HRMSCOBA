@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -26,13 +28,13 @@ import com.jangeby.system.ui.theme.*
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskScreen(
     onNavigateBack: () -> Unit,
-    viewModel: TaskViewModel = koinInject()
+    viewModel: TaskViewModel = koinViewModel()
 ) {
     val tasks by viewModel.tasks.collectAsState()
     val currentDate by viewModel.selectedDate.collectAsState()
@@ -554,8 +556,11 @@ private fun BottomSheetAddTask(
     var taskInputs by remember { mutableStateOf(listOf("")) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = Color.White,
         dragHandle = {
@@ -573,7 +578,10 @@ private fun BottomSheetAddTask(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 36.dp)
         ) {
             Text(
                 text = "Tambah Tugas Harian",

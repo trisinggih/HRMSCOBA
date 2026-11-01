@@ -17,6 +17,10 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -78,13 +82,39 @@ class OvertimeViewModel : ViewModel() {
             _errorMessage.value = "Silakan pilih tanggal lembur"
             return
         }
+        val todayStr = DateTimeUtils.todayDateString()
+        if (date < todayStr) {
+            _errorMessage.value = "Tanggal lembur tidak boleh kurang dari hari ini"
+            return
+        }
         if (startTime.isBlank()) {
             _errorMessage.value = "Silakan pilih jam mulai lembur"
+            return
+        }
+        if (startTime <= "17:30") {
+            _errorMessage.value = "Jam mulai lembur harus lebih dari jam selesai shift"
             return
         }
         if (endTime.isBlank()) {
             _errorMessage.value = "Silakan pilih jam selesai lembur"
             return
+        }
+        if (startTime == endTime) {
+            _errorMessage.value = "Jam selesai lembur tidak boleh sama dengan jam mulai"
+            return
+        }
+        val startParts = startTime.split(":").mapNotNull { it.toIntOrNull() }
+        val endParts = endTime.split(":").mapNotNull { it.toIntOrNull() }
+        if (startParts.size == 2 && endParts.size == 2) {
+            val startMin = startParts[0] * 60 + startParts[1]
+            var endMin = endParts[0] * 60 + endParts[1]
+            if (endMin < startMin) {
+                endMin += 24 * 60
+            }
+            if (endMin - startMin > 16 * 60) {
+                _errorMessage.value = "Durasi lembur tidak boleh melebihi 16 jam"
+                return
+            }
         }
         if (reason.isBlank()) {
             _errorMessage.value = "Harap isi alasan pengajuan lembur"
@@ -192,17 +222,6 @@ class OvertimeViewModel : ViewModel() {
     }
 
     fun formatDateDMY(dateStr: String?): String {
-        if (dateStr.isNullOrBlank()) return "-"
-        return try {
-            val date = if (dateStr.contains("T")) {
-                val dateTime = kotlinx.datetime.LocalDateTime.parse(dateStr.replace("Z", ""))
-                dateTime.date
-            } else {
-                kotlinx.datetime.LocalDate.parse(dateStr)
-            }
-            "${date.dayOfMonth.toString().padStart(2, '0')}-${date.monthNumber.toString().padStart(2, '0')}-${date.year}"
-        } catch (e: Exception) {
-            dateStr
-        }
+        return com.jangeby.system.utils.DateTimeUtils.formatDateDMY(dateStr)
     }
 }

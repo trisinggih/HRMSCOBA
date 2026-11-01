@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -28,13 +30,17 @@ import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
-import org.koin.compose.koinInject
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PermitScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PermitViewModel = koinInject()
+    viewModel: PermitViewModel = koinViewModel()
 ) {
     val uriHandler = LocalUriHandler.current
 
@@ -49,6 +55,13 @@ fun PermitScreen(
     var showFormSheet by remember { mutableStateOf(false) }
     var selectedItemForTracking by remember { mutableStateOf<PermitRequestItem?>(null) }
     var itemToCancel by remember { mutableStateOf<PermitRequestItem?>(null) }
+
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            showFormSheet = false
+            viewModel.loadPermits()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -201,10 +214,11 @@ fun PermitScreen(
         FormPermitBottomSheet(
             isSubmitting = isSubmitting,
             onDismiss = { showFormSheet = false },
-            onSubmit = { type, date, startTime, endTime, reason, attachment ->
+            onSubmit = { type, startDate, endDate, startTime, endTime, reason, attachment ->
                 viewModel.submitPermit(
                     type = type,
-                    date = date,
+                    startDate = startDate,
+                    endDate = endDate,
                     startTime = startTime,
                     endTime = endTime,
                     reason = reason,
@@ -267,8 +281,11 @@ fun PermitCard(
     onAttachmentClick: (String) -> Unit
 ) {
     val typeTitle = when (item.type?.lowercase()) {
-        "personal" -> "Keperluan Pribadi"
-        "business" -> "Dinas Kantor"
+        "personal" -> "Izin Pribadi"
+        "business" -> "Izin Dinas Luar Kota"
+        "out_of_office", "izin_keluar" -> "Izin Keluar Kantor"
+        "family" -> "Urusan Keluarga"
+        "urgent" -> "Mendesak / Urgent"
         else -> item.type?.replaceFirstChar { it.uppercase() } ?: "Izin"
     }
 
@@ -310,7 +327,7 @@ fun PermitCard(
                             color = Color(0xFF111827)
                         )
                         Text(
-                            text = "${viewModel.formatDateDMY(item.date)} · ${item.startTime?.take(5) ?: "-"} - ${item.endTime?.take(5) ?: "-"}",
+                            text = viewModel.formatPermitDateRange(item),
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
@@ -397,14 +414,22 @@ fun PermitCard(
 fun FormPermitBottomSheet(
     isSubmitting: Boolean,
     onDismiss: () -> Unit,
-    onSubmit: (type: String, date: String, startTime: String, endTime: String, reason: String, attachment: PlatformFile?) -> Unit
+    onSubmit: (type: String, startDate: String, endDate: String, startTime: String, endTime: String, reason: String, attachment: PlatformFile?) -> Unit
 ) {
     var selectedTypeIndex by remember { mutableStateOf(0) }
-    val typeOptions = listOf("Keperluan Pribadi" to "personal", "Dinas Kantor" to "business")
+    val typeOptions = listOf(
+        "Izin Pribadi" to "personal",
+        "Izin Dinas Luar Kota" to "business",
+        "Izin Keluar" to "out_of_office"
+    )
 
-    var date by remember { mutableStateOf("") }
-    var startTime by remember { mutableStateOf("") }
-    var endTime by remember { mutableStateOf("") }
+    val todayDate = DateTimeUtils.nowInJakarta().date
+    val todayStr = todayDate.toString()
+
+    var startDate by remember { mutableStateOf(todayStr) }
+    var endDate by remember { mutableStateOf(todayStr) }
+    var startTime by remember { mutableStateOf("08:00") }
+    var endTime by remember { mutableStateOf("17:00") }
     var reason by remember { mutableStateOf("") }
     var selectedFile by remember { mutableStateOf<PlatformFile?>(null) }
 
@@ -415,12 +440,31 @@ fun FormPermitBottomSheet(
         selectedFile = file
     }
 
-    val isPersonal = selectedTypeIndex == 0
-    val startLabel = if (isPersonal) "Jam Keluar (HH:mm) *" else "Jam Mulai (HH:mm) *"
-    val endLabel = if (isPersonal) "Jam Kembali (HH:mm) *" else "Jam Selesai (HH:mm) *"
+    val selectedTypeCode = typeOptions[selectedTypeIndex].second
+    val isExitPermit = selectedTypeCode == "out_of_office"
+    val isBusinessTrip = selectedTypeCode == "business"
+
+    LaunchedEffect(selectedTypeCode) {
+        if (isExitPermit) {
+            startDate = todayStr
+            endDate = todayStr
+            startTime = "08:00"
+            endTime = "17:00"
+        } else {
+            if (startDate < todayStr) {
+                startDate = todayStr
+            }
+            if (endDate < startDate) {
+                endDate = startDate
+            }
+        }
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = Color.White
     ) {
@@ -428,6 +472,9 @@ fun FormPermitBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -437,6 +484,45 @@ fun FormPermitBottomSheet(
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
+
+            // Advisory Note Card
+            Surface(
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(20.dp).padding(top = 1.dp)
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = "Ketentuan Pengajuan Izin",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1E40AF)
+                        )
+                        Text(
+                            text = when {
+                                isExitPermit -> "• Khusus Izin Keluar hanya dapat diajukan untuk hari ini.\n• Wajib menentukan jam keluar dan jam kembali."
+                                isBusinessTrip -> "• Izin Dinas Luar Kota dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal)."
+                                else -> "• Izin Pribadi dapat diajukan mulai hari ini.\n• Dapat diajukan untuk rentang tanggal (tanggal mulai s/d tanggal akhir)."
+                            },
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            color = Color(0xFF1E3A8A)
+                        )
+                    }
+                }
+            }
 
             Text("Jenis Izin:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -449,33 +535,60 @@ fun FormPermitBottomSheet(
                 }
             }
 
-            OutlinedTextField(
-                value = date,
-                onValueChange = { date = it },
-                label = { Text("Tanggal (YYYY-MM-DD) *") },
-                placeholder = { Text("Contoh: 2026-10-08") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.DateRange, null, tint = Primary) }
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = startTime,
-                    onValueChange = { startTime = it },
-                    label = { Text(startLabel) },
-                    placeholder = { Text("09:00") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
+            if (isExitPermit) {
+                DatePickerField(
+                    value = startDate,
+                    onValueChange = { startDate = it; endDate = it },
+                    label = "Tanggal Izin Keluar *",
+                    minDate = todayStr,
+                    maxDate = todayStr
                 )
-                OutlinedTextField(
-                    value = endTime,
-                    onValueChange = { endTime = it },
-                    label = { Text(endLabel) },
-                    placeholder = { Text("12:00") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = startTime,
+                        onValueChange = { startTime = it },
+                        label = { Text("Jam Keluar (HH:mm) *") },
+                        placeholder = { Text("09:00") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = endTime,
+                        onValueChange = { endTime = it },
+                        label = { Text("Jam Kembali (HH:mm) *") },
+                        placeholder = { Text("12:00") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DatePickerField(
+                        value = startDate,
+                        onValueChange = {
+                            startDate = it
+                            if (endDate.isBlank() || endDate < it) {
+                                endDate = it
+                            }
+                        },
+                        label = "Tanggal Mulai *",
+                        minDate = todayStr,
+                        modifier = Modifier.weight(1f)
+                    )
+                    DatePickerField(
+                        value = endDate,
+                        onValueChange = {
+                            if (startDate.isNotBlank() && it < startDate) {
+                                endDate = startDate
+                            } else {
+                                endDate = it
+                            }
+                        },
+                        label = "Tanggal Selesai *",
+                        minDate = if (startDate.isNotBlank()) startDate else todayStr,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             OutlinedTextField(
@@ -511,13 +624,19 @@ fun FormPermitBottomSheet(
                 }
             }
 
+            val isValidInput = if (isExitPermit) {
+                startDate.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank() && reason.isNotBlank()
+            } else {
+                startDate.isNotBlank() && endDate.isNotBlank() && reason.isNotBlank()
+            }
+
             Button(
                 onClick = {
-                    val typeCode = typeOptions[selectedTypeIndex].second
-                    onSubmit(typeCode, date.trim(), startTime.trim(), endTime.trim(), reason.trim(), selectedFile)
+                    val finalEnd = if (endDate.isNotBlank()) endDate else startDate
+                    onSubmit(selectedTypeCode, startDate.trim(), finalEnd.trim(), startTime.trim(), endTime.trim(), reason.trim(), selectedFile)
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                enabled = !isSubmitting && date.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank() && reason.isNotBlank(),
+                enabled = !isSubmitting && isValidInput,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
@@ -543,13 +662,30 @@ fun TrackingPermitBottomSheet(
     onDismiss: () -> Unit
 ) {
     val typeTitle = when (item.type?.lowercase()) {
-        "personal" -> "Keperluan Pribadi"
-        "business" -> "Dinas Kantor"
+        "personal" -> "Izin Pribadi"
+        "business" -> "Izin Dinas Luar Kota"
+        "out_of_office", "izin_keluar" -> "Izin Keluar Kantor"
+        "family" -> "Urusan Keluarga"
+        "urgent" -> "Mendesak / Urgent"
         else -> item.type?.replaceFirstChar { it.uppercase() } ?: "Izin"
     }
 
+    val finalStartDate = item.startDate ?: item.date
+    val finalEndDate = item.endDate ?: finalStartDate
+    val isMultiDay = !finalEndDate.isNullOrBlank() && !finalStartDate.isNullOrBlank() && finalEndDate.take(10) != finalStartDate.take(10)
+    val isExitPermit = item.type?.lowercase() in listOf("out_of_office", "izin_keluar")
+
+    val dateDisplay = if (isMultiDay) {
+        "${viewModel.formatDateOnlyDMY(finalStartDate)} s/d ${viewModel.formatDateOnlyDMY(finalEndDate)}"
+    } else {
+        viewModel.formatDateOnlyDMY(finalStartDate)
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = Color.White
     ) {
@@ -557,6 +693,8 @@ fun TrackingPermitBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
                 .padding(bottom = 36.dp)
         ) {
             Text(
@@ -567,8 +705,10 @@ fun TrackingPermitBottomSheet(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text("Jenis: $typeTitle", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Primary)
-            Text("Tanggal: ${viewModel.formatDateDMY(item.date)}", fontSize = 13.sp, color = Color(0xFF757575))
-            Text("Waktu: ${item.startTime?.take(5) ?: "-"} s/d ${item.endTime?.take(5) ?: "-"}", fontSize = 13.sp, color = Color(0xFF757575))
+            Text("Tanggal: $dateDisplay", fontSize = 13.sp, color = Color(0xFF757575))
+            if (isExitPermit && (!item.startTime.isNullOrBlank() || !item.endTime.isNullOrBlank())) {
+                Text("Waktu: ${item.startTime?.take(5) ?: "-"} s/d ${item.endTime?.take(5) ?: "-"}", fontSize = 13.sp, color = Color(0xFF757575))
+            }
             Text("Alasan: ${item.reason ?: "-"}", fontSize = 13.sp, color = Color.Black)
 
             Spacer(modifier = Modifier.height(16.dp))

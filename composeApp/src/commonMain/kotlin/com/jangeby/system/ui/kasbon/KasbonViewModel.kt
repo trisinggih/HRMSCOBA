@@ -165,23 +165,6 @@ class KasbonViewModel : ViewModel() {
     }
 
     fun formatDateDMY(dateStr: String?): String {
-        if (dateStr.isNullOrBlank()) return "-"
-        try {
-            val parts = dateStr.split("T", " ")
-            val dateParts = parts[0].split("-")
-            if (dateParts.size == 3) {
-                val months = listOf("", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des")
-                val monthIdx = dateParts[1].toIntOrNull() ?: 1
-                val monthStr = if (monthIdx in 1..12) months[monthIdx] else dateParts[1]
-                if (parts.size > 1 && parts[1].isNotBlank()) {
-                    val timeParts = parts[1].split(":")
-                    if (timeParts.size >= 2) {
-                        return "${dateParts[2]}-$monthStr-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}"
-                    }
-                }
-                return "${dateParts[2]}-$monthStr-${dateParts[0]}"
-            }
-        } catch (e: Exception) { }
-        return dateStr
+        return com.jangeby.system.utils.DateTimeUtils.formatDateDMY(dateStr)
     }
 }

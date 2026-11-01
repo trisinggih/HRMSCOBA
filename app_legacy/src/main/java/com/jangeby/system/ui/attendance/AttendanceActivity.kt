@@ -141,10 +141,22 @@ class AttendanceActivity : AppCompatActivity() {
                 historyAdapter = HistoryAdapter(items)
                 rvHistory.adapter = historyAdapter
                 
-                // Find today's shift and bind to UI
+                // Find today's shift or unclosed previous session and bind to UI
                 val todayStr = today.toString()
-                val todayItem = items.find { it.date == todayStr }
-                bindTodayStatus(todayItem, todayStr)
+                val foundToday = items.find { it.date == todayStr }
+                val unclosedPrevious = items.filter { 
+                    it.attendance?.clockIn != null && it.attendance.clockOut.isNullOrBlank() && (it.date ?: "") < todayStr 
+                }.maxByOrNull { it.date ?: "" }
+
+                val activeItem = if (foundToday?.attendance?.clockIn != null) {
+                    foundToday
+                } else if (unclosedPrevious != null) {
+                    unclosedPrevious
+                } else {
+                    foundToday
+                }
+
+                bindTodayStatus(activeItem, todayStr)
                 
             } catch (t: Throwable) {
                 showMessage("Gagal memuat data: ${t.localizedMessage}")
@@ -161,7 +173,7 @@ class AttendanceActivity : AppCompatActivity() {
         tvStatus.text = if (item == null) {
             "Belum ada jadwal hari ini."
         } else {
-            val shiftText = item.shift?.name ?: if (item.isHoliday == true) "Libur Nasional" else "Libur/Off"
+            val shiftText = item.shift?.name ?: if (item.isHoliday == true) "Libur / Off" else "Libur / Off"
             val sStart = item.shift?.startTime?.substring(0, 5) ?: "-"
             val sEnd = item.shift?.endTime?.substring(0, 5) ?: "-"
             

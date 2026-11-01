@@ -32,7 +32,7 @@ class LoginViewModel(private val appSettings: AppSettings) : ViewModel() {
     private val _state = MutableStateFlow<LoginState>(LoginState.Idle)
     val state: StateFlow<LoginState> = _state
 
-    private val _companyLogoUrl = MutableStateFlow<String?>(appSettings.companyLogoUrl)
+    private val _companyLogoUrl = MutableStateFlow<String?>(ApiClient.sanitizeImageUrl(appSettings.companyLogoUrl))
     val companyLogoUrl: StateFlow<String?> = _companyLogoUrl
 
     private val _companyName = MutableStateFlow<String?>(appSettings.companyName ?: "JANGEBY")
@@ -51,7 +51,7 @@ class LoginViewModel(private val appSettings: AppSettings) : ViewModel() {
                     val apiResponse: com.jangeby.system.data.remote.ApiResponse<CompanyLogoData> = response.body()
                     if (apiResponse.success && apiResponse.data != null) {
                         apiResponse.data.logo?.let { logo ->
-                            val finalUrl = if (logo.startsWith("http://")) logo.replaceFirst("http://", "https://") else logo
+                            val finalUrl = ApiClient.sanitizeImageUrl(logo)
                             _companyLogoUrl.value = finalUrl
                             appSettings.companyLogoUrl = finalUrl
                         }
@@ -104,6 +104,9 @@ class LoginViewModel(private val appSettings: AppSettings) : ViewModel() {
                             appSettings.userName = emp.name ?: "Karyawan"
                             appSettings.companyName = emp.company ?: "HRMS"
                             appSettings.userPosition = emp.position ?: ""
+                            appSettings.hasSubordinates = emp.hasSubordinates
+                            appSettings.subordinatesCount = emp.subordinatesCount
+                            emp.photoUrl?.let { appSettings.userPhotoUrl = it }
                         }
                         
                         _state.value = LoginState.Success(apiResponse.data.employee)

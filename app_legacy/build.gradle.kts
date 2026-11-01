@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.jangeby.system"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.jangeby.system"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }

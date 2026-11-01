@@ -36,13 +36,13 @@ import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReimburseScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ReimburseViewModel = koinInject()
+    viewModel: ReimburseViewModel = koinViewModel()
 ) {
     val reimbursements by viewModel.reimbursements.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -95,10 +95,11 @@ fun ReimburseScreen(
     }
 
     LaunchedEffect(successMessage) {
-        successMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearMessages()
+        successMessage?.let { msg ->
             showFormSheet = false
+            viewModel.loadReimbursements()
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearMessages()
         }
     }
 
@@ -518,8 +519,9 @@ private fun DetailReimburseBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 10.dp)
-                .padding(bottom = 30.dp)
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 36.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -724,7 +726,10 @@ private fun FormReimburseContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 12.dp)
+            .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
+            .imePadding()
+            .padding(bottom = 36.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

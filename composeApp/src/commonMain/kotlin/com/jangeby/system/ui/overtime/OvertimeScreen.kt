@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,13 +35,19 @@ import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
 import io.github.vinceglb.filekit.core.PlatformFile
-import org.koin.compose.koinInject
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
+import com.jangeby.system.utils.ApprovalUtils
+import com.jangeby.system.utils.StepStatusInfo
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OvertimeScreen(
     onNavigateBack: () -> Unit,
-    viewModel: OvertimeViewModel = koinInject()
+    viewModel: OvertimeViewModel = koinViewModel()
 ) {
     val overtimes by viewModel.overtimes.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -86,10 +94,11 @@ fun OvertimeScreen(
     }
 
     LaunchedEffect(successMessage) {
-        successMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearMessages()
+        successMessage?.let { msg ->
             showFormSheet = false
+            viewModel.loadOvertimes()
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearMessages()
         }
     }
 
@@ -424,6 +433,16 @@ private fun OvertimeItemCard(
     val startTimeFormatted = item.requestedStartTime?.take(5) ?: "-"
     val endTimeFormatted = item.requestedEndTime?.take(5) ?: "-"
 
+    val isOvernightItem = remember(startTimeFormatted, endTimeFormatted) {
+        if (startTimeFormatted != "-" && endTimeFormatted != "-") {
+            val sParts = startTimeFormatted.split(":").mapNotNull { it.toIntOrNull() }
+            val eParts = endTimeFormatted.split(":").mapNotNull { it.toIntOrNull() }
+            if (sParts.size == 2 && eParts.size == 2) {
+                (eParts[0] * 60 + eParts[1]) < (sParts[0] * 60 + sParts[1])
+            } else false
+        } else false
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -470,7 +489,7 @@ private fun OvertimeItemCard(
                             color = TextPrimary
                         )
                         Text(
-                            text = "Jam: $startTimeFormatted – $endTimeFormatted",
+                            text = "Jam: $startTimeFormatted – $endTimeFormatted" + if (isOvernightItem) " (+1 hari)" else "",
                             fontSize = 11.sp,
                             color = TextSecondary
                         )
@@ -507,7 +526,7 @@ private fun OvertimeItemCard(
                     color = TextSecondary
                 )
                 Text(
-                    text = "$startTimeFormatted s/d $endTimeFormatted",
+                    text = "$startTimeFormatted s/d $endTimeFormatted" + if (isOvernightItem) " (+1 hari)" else "",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F766E)
@@ -608,11 +627,13 @@ private fun FormOvertimeBottomSheet(
     onSubmit: (date: String, startTime: String, endTime: String, reason: String, photo: PlatformFile?) -> Unit
 ) {
     var selectedDate by remember { mutableStateOf("") }
-    val startTime = "20:30" // Fixed start time
-    var endTime by remember { mutableStateOf("22:00") }
+    var startTime by remember { mutableStateOf("") }
+    var endTime by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
     var selectedPhoto by remember { mutableStateOf<PlatformFile?>(null) }
     var validationError by remember { mutableStateOf<String?>(null) }
+
+    val todayStr = remember { DateTimeUtils.todayDateString() }
 
     val filePicker = rememberFilePickerLauncher(
         type = PickerType.Image,
@@ -622,8 +643,62 @@ private fun FormOvertimeBottomSheet(
         file?.let { selectedPhoto = it }
     }
 
+    val isOvernight = remember(startTime, endTime) {
+        if (startTime.isNotBlank() && endTime.isNotBlank()) {
+            val startParts = startTime.split(":").mapNotNull { it.toIntOrNull() }
+            val endParts = endTime.split(":").mapNotNull { it.toIntOrNull() }
+            if (startParts.size == 2 && endParts.size == 2) {
+                val startMin = startParts[0] * 60 + startParts[1]
+                val endMin = endParts[0] * 60 + endParts[1]
+                endMin < startMin
+            } else false
+        } else false
+    }
+
+    val durationText = remember(startTime, endTime) {
+        if (startTime.isNotBlank() && endTime.isNotBlank() && startTime != endTime) {
+            val startParts = startTime.split(":").mapNotNull { it.toIntOrNull() }
+            val endParts = endTime.split(":").mapNotNull { it.toIntOrNull() }
+            if (startParts.size == 2 && endParts.size == 2) {
+                val startMin = startParts[0] * 60 + startParts[1]
+                var endMin = endParts[0] * 60 + endParts[1]
+                if (endMin < startMin) endMin += 24 * 60 // Melewati jam 23:59 (lintas hari / next day)
+                val diff = endMin - startMin
+                val h = diff / 60
+                val m = diff % 60
+                if (m > 0) "${h} jam ${m} menit" else "${h} jam"
+            } else ""
+        } else ""
+    }
+
+    fun validateTimes(s: String, e: String): String? {
+        if (s.isNotBlank() && s <= "17:30") {
+            return "Jam mulai lembur harus lebih dari jam selesai shift (17:30)"
+        }
+        if (s.isNotBlank() && e.isNotBlank()) {
+            if (s == e) {
+                return "Jam selesai lembur tidak boleh sama dengan jam mulai"
+            }
+            val startParts = s.split(":").mapNotNull { it.toIntOrNull() }
+            val endParts = e.split(":").mapNotNull { it.toIntOrNull() }
+            if (startParts.size == 2 && endParts.size == 2) {
+                val startMin = startParts[0] * 60 + startParts[1]
+                var endMin = endParts[0] * 60 + endParts[1]
+                if (endMin < startMin) endMin += 24 * 60
+                val diff = endMin - startMin
+                if (diff > 16 * 60) {
+                    return "Durasi lembur tidak boleh melebihi 16 jam"
+                }
+            }
+        }
+        return null
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = Color.White
     ) {
@@ -631,7 +706,10 @@ private fun FormOvertimeBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(bottom = 36.dp)
         ) {
             Text(
                 text = "Ajukan Lembur",
@@ -646,7 +724,36 @@ private fun FormOvertimeBottomSheet(
                 color = TextSecondary
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Advisory Note Card
+            Surface(
+                color = Color(0xFFEFF6FF),
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Pengajuan lembur mulai jam 20:00 (bisa lintas hari melewati 23:59).",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E40AF)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Tanggal Lembur
             Text(
@@ -658,8 +765,17 @@ private fun FormOvertimeBottomSheet(
             Spacer(modifier = Modifier.height(6.dp))
             DatePickerField(
                 value = selectedDate,
-                onValueChange = { selectedDate = it },
+                onValueChange = { 
+                    if (it < todayStr) {
+                        validationError = "Tanggal lembur tidak boleh kurang dari hari ini"
+                        selectedDate = todayStr
+                    } else {
+                        validationError = null
+                        selectedDate = it 
+                    }
+                },
                 label = "Pilih Tanggal Lembur",
+                minDate = todayStr,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -678,36 +794,66 @@ private fun FormOvertimeBottomSheet(
                         color = Color.Black
                     )
                     Spacer(modifier = Modifier.height(6.dp))
-                    OutlinedTextField(
+                    TimePickerField(
                         value = startTime,
-                        onValueChange = { },
-                        readOnly = true,
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = Color.Black,
-                            disabledBorderColor = Color(0xFFCBD5E1),
-                            disabledContainerColor = Color(0xFFF1F5F9)
-                        ),
-                        shape = RoundedCornerShape(10.dp)
+                        onValueChange = {
+                            startTime = it
+                            validationError = validateTimes(it, endTime)
+                        },
+                        label = "Jam Mulai",
+                        defaultHour = 20,
+                        defaultMinute = 0,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Jam Selesai",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Jam Selesai",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        if (isOvernight) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                color = Color(0xFFFEF3C7),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "+1 Hari (Besok)",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFB45309),
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     TimePickerField(
                         value = endTime,
-                        onValueChange = { endTime = it },
+                        onValueChange = {
+                            endTime = it
+                            validationError = validateTimes(startTime, it)
+                        },
                         label = "Jam Selesai",
+                        defaultHour = 22,
+                        defaultMinute = 0,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+
+            if (durationText.isNotBlank() && validationError == null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Total Durasi: $durationText" + if (isOvernight) " (berakhir pukul $endTime keesokan harinya)" else "",
+                    fontSize = 11.sp,
+                    color = Color(0xFF0F766E),
+                    fontWeight = FontWeight.Medium
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -740,29 +886,53 @@ private fun FormOvertimeBottomSheet(
                 color = Color.Black
             )
             Spacer(modifier = Modifier.height(6.dp))
-            OutlinedButton(
-                onClick = { filePicker.launch() },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                border = BorderStroke(1.dp, if (selectedPhoto != null) Primary else Color(0xFFCBD5E1))
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                OutlinedButton(
+                    onClick = { filePicker.launch() },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, if (selectedPhoto != null) Primary else Color(0xFFCBD5E1))
                 ) {
-                    Icon(
-                        imageVector = if (selectedPhoto != null) Icons.Default.Check else Icons.Default.Add,
-                        contentDescription = null,
-                        tint = if (selectedPhoto != null) Primary else Color.Gray,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = selectedPhoto?.name ?: "Pilih Lampiran / Bukti",
-                        fontSize = 13.sp,
-                        color = if (selectedPhoto != null) Primary else Color.Gray
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (selectedPhoto != null) Icons.Default.Check else Icons.Default.Add,
+                            contentDescription = null,
+                            tint = if (selectedPhoto != null) Primary else Color.Gray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = selectedPhoto?.name ?: "Pilih Lampiran / Bukti (Opsional)",
+                            fontSize = 13.sp,
+                            color = if (selectedPhoto != null) Primary else Color.Gray
+                        )
+                    }
+                }
+                if (selectedPhoto != null) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { selectedPhoto = null },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Hapus lampiran",
+                            tint = Danger
+                        )
+                    }
                 }
             }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Lampiran bersifat opsional (tidak wajib)",
+                fontSize = 11.sp,
+                color = TextSecondary
+            )
 
             if (validationError != null || apiErrorMessage != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -798,8 +968,25 @@ private fun FormOvertimeBottomSheet(
                         validationError = "Silakan pilih tanggal lembur"
                         return@Button
                     }
+                    if (selectedDate < todayStr) {
+                        validationError = "Tanggal lembur tidak boleh kurang dari hari ini"
+                        return@Button
+                    }
                     if (reason.isBlank()) {
                         validationError = "Silakan isi alasan pengajuan lembur"
+                        return@Button
+                    }
+                    if (startTime.isBlank()) {
+                        validationError = "Silakan pilih jam mulai lembur"
+                        return@Button
+                    }
+                    if (endTime.isBlank()) {
+                        validationError = "Silakan pilih jam selesai lembur"
+                        return@Button
+                    }
+                    val timeError = validateTimes(startTime, endTime)
+                    if (timeError != null) {
+                        validationError = timeError
                         return@Button
                     }
                     validationError = null
@@ -843,8 +1030,11 @@ private fun OvertimeTrackingBottomSheet(
     isLoading: Boolean,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         containerColor = Color.White
     ) {
@@ -852,20 +1042,43 @@ private fun OvertimeTrackingBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 32.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 36.dp)
         ) {
-            Text(
-                text = "Tracking Persetujuan Lembur",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Tanggal $formattedDate • ${item.requestedStartTime?.take(5) ?: "-"} s/d ${item.requestedEndTime?.take(5) ?: "-"}",
-                fontSize = 13.sp,
-                color = TextSecondary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Tracking Persetujuan Lembur",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val startTimeFormatted = item.requestedStartTime?.take(5) ?: "-"
+                    val endTimeFormatted = item.requestedEndTime?.take(5) ?: "-"
+                    val isOvernightItem = if (startTimeFormatted != "-" && endTimeFormatted != "-") {
+                        val sParts = startTimeFormatted.split(":").mapNotNull { it.toIntOrNull() }
+                        val eParts = endTimeFormatted.split(":").mapNotNull { it.toIntOrNull() }
+                        if (sParts.size == 2 && eParts.size == 2) {
+                            (eParts[0] * 60 + eParts[1]) < (sParts[0] * 60 + sParts[1])
+                        } else false
+                    } else false
+                    val overnightText = if (isOvernightItem) " (+1 hari)" else ""
+                    Text(
+                        text = "Tanggal $formattedDate • $startTimeFormatted s/d $endTimeFormatted$overnightText",
+                        fontSize = 13.sp,
+                        color = TextSecondary
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color.Gray)
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -882,26 +1095,154 @@ private fun OvertimeTrackingBottomSheet(
                 val steps = trackingDetail.workflow?.steps ?: emptyList()
                 val logs = trackingDetail.logs ?: emptyList()
 
-                if (steps.isEmpty()) {
+                if (steps.isEmpty() && logs.isEmpty()) {
                     Text(
                         text = "Belum ada alur approval yang tercatat.",
                         fontSize = 13.sp,
                         color = TextSecondary,
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
-                } else {
+                } else if (steps.isNotEmpty()) {
                     steps.forEachIndexed { index, step ->
                         val isLast = index == steps.size - 1
-                        val log = logs.findLast { 
-                            (it.stepId == step.id || (step.order != null && it.stepId == step.order.toLong())) &&
-                            it.action?.lowercase() !in listOf("escalate", "submit")
+                        val stepOrder = step.order ?: (index + 1)
+                        val roleLabel = when (step.approverType?.lowercase()?.trim()) {
+                            "supervisor", "direct_manager", "manager" -> "Atasan Langsung"
+                            "hr", "hrd" -> "HRD"
+                            "specific_user" -> "Approver Khusus"
+                            else -> step.approverType?.replaceFirstChar { it.uppercase() } ?: "Approver"
                         }
 
-                        val action = log?.action?.lowercase()
-                        val (stepColor, statusText) = when (action) {
-                            "approved", "approve" -> Color(0xFF4CAF50) to "Disetujui"
-                            "rejected", "reject" -> Danger to "Ditolak"
-                            else -> Color(0xFFFFA000) to "Menunggu"
+                        val statusInfo = ApprovalUtils.resolveStepStatus(trackingDetail, step, index)
+                        val stepColor = statusInfo.statusColor
+                        val statusText = statusInfo.statusText
+                        val iconVector = when (statusInfo.statusText) {
+                            "DISETUJUI" -> Icons.Default.Check
+                            "DITOLAK" -> Icons.Default.Close
+                            "DIBATALKAN" -> Icons.Default.Close
+                            else -> Icons.Default.Info
+                        }
+
+                        val stepTitle = "Tahap $stepOrder • $roleLabel"
+                        val approverText = statusInfo.actorLine
+                        val isApproved = statusInfo.statusText == "DISETUJUI"
+                        val isRejected = statusInfo.statusText == "DITOLAK"
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.width(28.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .background(stepColor.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = iconVector,
+                                        contentDescription = null,
+                                        tint = stepColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+
+                                if (!isLast) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(2.dp)
+                                            .height(56.dp)
+                                            .background(Color(0xFFE2E8F0))
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stepTitle,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF1E293B)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(stepColor.copy(alpha = 0.12f))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusText,
+                                            fontSize = 11.sp,
+                                            color = stepColor,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = approverText,
+                                    fontSize = 13.sp,
+                                    color = if (isApproved || isRejected) Color(0xFF0F172A) else Color(0xFF475569),
+                                    fontWeight = if (isApproved || isRejected) FontWeight.SemiBold else FontWeight.Medium
+                                )
+
+                                if (!statusInfo.note.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Catatan: ${statusInfo.note}",
+                                        fontSize = 12.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+
+                                if (!statusInfo.dateText.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = DateTimeUtils.formatDateDMY(statusInfo.dateText),
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback jika workflow steps kosong namun logs approval ada
+                    logs.filter { it.action?.lowercase() !in listOf("escalate") }.forEachIndexed { index, l ->
+                        val isLast = index == logs.size - 1
+                        val logAction = l.action?.lowercase()
+                        val isApprove = logAction in listOf("approved", "approve")
+                        val isReject = logAction in listOf("rejected", "reject")
+                        val isCancel = logAction in listOf("cancelled", "cancel")
+                        val (logColor, statusLabel, icon) = when {
+                            isApprove -> Triple(Color(0xFF16A34A), "Disetujui", Icons.Default.Check)
+                            isReject -> Triple(Danger, "Ditolak", Icons.Default.Close)
+                            isCancel -> Triple(Color.Gray, "Dibatalkan", Icons.Default.Close)
+                            logAction == "submit" -> Triple(Color(0xFF0284C7), "Diajukan", Icons.Default.Info)
+                            else -> Triple(Color(0xFFF59E0B), l.action?.replaceFirstChar { it.uppercase() } ?: "Diproses", Icons.Default.Info)
+                        }
+                        val actorName = l.approverName ?: "Sistem / Admin"
+                        val actorLine = when {
+                            isApprove -> "Disetujui oleh: $actorName"
+                            isReject -> "Ditolak oleh: $actorName"
+                            isCancel -> "Dibatalkan oleh: $actorName"
+                            logAction == "submit" -> "Diajukan oleh: $actorName"
+                            else -> "Oleh: $actorName"
                         }
 
                         Row(
@@ -914,19 +1255,15 @@ private fun OvertimeTrackingBottomSheet(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(24.dp)
+                                        .size(26.dp)
                                         .clip(CircleShape)
-                                        .background(stepColor.copy(alpha = 0.15f)),
+                                        .background(logColor.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = when (action) {
-                                            "approved", "approve" -> Icons.Default.Check
-                                            "rejected", "reject" -> Icons.Default.Close
-                                            else -> Icons.Default.Info
-                                        },
+                                        imageVector = icon,
                                         contentDescription = null,
-                                        tint = stepColor,
+                                        tint = logColor,
                                         modifier = Modifier.size(14.dp)
                                     )
                                 }
@@ -935,7 +1272,7 @@ private fun OvertimeTrackingBottomSheet(
                                     Box(
                                         modifier = Modifier
                                             .width(2.dp)
-                                            .height(48.dp)
+                                            .height(56.dp)
                                             .background(Color(0xFFE2E8F0))
                                     )
                                 }
@@ -944,32 +1281,58 @@ private fun OvertimeTrackingBottomSheet(
                             Spacer(modifier = Modifier.width(12.dp))
 
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = step.expectedApproverName ?: step.approverName ?: step.approverType ?: "Tahap ${step.order ?: (index + 1)}",
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = Color.Black
-                                )
-                                Text(
-                                    text = "Status: $statusText",
-                                    fontSize = 12.sp,
-                                    color = stepColor,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                if (!log?.note.isNullOrBlank()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Text(
-                                        text = "Catatan: ${log?.note}",
-                                        fontSize = 11.sp,
+                                        text = "Aktivitas ${index + 1}",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF1E293B)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(logColor.copy(alpha = 0.12f))
+                                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = statusLabel,
+                                            fontSize = 11.sp,
+                                            color = logColor,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = actorLine,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF0F172A),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                if (!l.note.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Catatan: ${l.note}",
+                                        fontSize = 12.sp,
                                         color = TextSecondary
                                     )
                                 }
-                                if (!log?.createdAt.isNullOrBlank()) {
+
+                                if (!l.createdAt.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = log.createdAt,
-                                        fontSize = 10.sp,
+                                        text = DateTimeUtils.formatDateDMY(l.createdAt),
+                                        fontSize = 11.sp,
                                         color = Color.Gray
                                     )
                                 }
+
                                 Spacer(modifier = Modifier.height(16.dp))
                             }
                         }

@@ -16,8 +16,9 @@ import java.util.concurrent.TimeUnit
 object ApiClient {
 
     /** Ubah di sini bila base URL backend berbeda. */
-    //const val BASE_URL: String = "http://172.20.10.4:8011/api/v1/"
-    //const val BASE_URL: String = "http://192.168.10.6:8011/api/v1/"
+    // Local development server (IP Wi-Fi: 192.168.1.127 / adb reverse: localhost:8011)
+    // const val BASE_URL: String = "http://192.168.0.101:8011/api/v1/"
+    // Online production server
     const val BASE_URL: String = "https://jangeby.rjpteknologi.com/api/v1/"
 
     @Volatile

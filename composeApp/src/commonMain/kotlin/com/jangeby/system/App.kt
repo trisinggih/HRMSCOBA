@@ -1,19 +1,31 @@
 package com.jangeby.system
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.jangeby.system.data.local.AppSettings
 import com.jangeby.system.navigation.*
+import com.jangeby.system.security.SecurityChecker
+import com.jangeby.system.security.SecurityViolation
 import com.jangeby.system.ui.announcement.AnnouncementScreen
 import com.jangeby.system.ui.approval.ApprovalScreen
 import com.jangeby.system.ui.asset.AssetScreen
 import com.jangeby.system.ui.attendance.AttendanceScreen
 import com.jangeby.system.ui.auth.LoginScreen
+import com.jangeby.system.ui.auth.RegisterScreen
+import com.jangeby.system.ui.auth.OtpVerificationScreen
 import com.jangeby.system.ui.dashboard.DashboardScreen
 import com.jangeby.system.ui.checkpoint.CheckPointScreen
+import com.jangeby.system.ui.component.SecurityBlockerScreen
 import com.jangeby.system.ui.kasbon.KasbonScreen
 import com.jangeby.system.ui.leave.LeaveScreen
 import com.jangeby.system.ui.notification.NotificationScreen
@@ -34,8 +46,19 @@ fun App() {
     HRMSTheme {
         val navController = rememberNavController()
         val appSettings: AppSettings = koinInject()
-        
-        NavHost(navController = navController, startDestination = SplashRoute) {
+        val securityViolation by SecurityChecker.violationState.collectAsState()
+
+        LifecycleResumeEffect(Unit) {
+            SecurityChecker.checkSecurity()
+            onPauseOrDispose { }
+        }
+
+        LaunchedEffect(Unit) {
+            SecurityChecker.checkSecurity()
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(navController = navController, startDestination = SplashRoute) {
             composable<SplashRoute> {
                 SplashScreen(
                     onNavigateToLogin = {
@@ -53,6 +76,32 @@ fun App() {
 
             composable<LoginRoute> {
                 LoginScreen(
+                    onNavigateToDashboard = {
+                        navController.navigate(DashboardRoute) {
+                            popUpTo(LoginRoute) { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = {
+                        navController.navigate(RegisterRoute)
+                    }
+                )
+            }
+
+            composable<RegisterRoute> {
+                RegisterScreen(
+                    onNavigateToLogin = { navController.popBackStack() },
+                    onNavigateToOtp = { email, name ->
+                        navController.navigate(OtpVerificationRoute(email = email, name = name))
+                    }
+                )
+            }
+
+            composable<OtpVerificationRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<OtpVerificationRoute>()
+                OtpVerificationScreen(
+                    email = route.email,
+                    name = route.name,
+                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToDashboard = {
                         navController.navigate(DashboardRoute) {
                             popUpTo(LoginRoute) { inclusive = true }
@@ -78,7 +127,7 @@ fun App() {
                     onNavigateToPayslip = { navController.navigate(PayslipRoute) },
                     onNavigateToTask = { navController.navigate(TaskRoute) },
                     onNavigateToNotification = { navController.navigate(NotificationRoute) },
-                    onNavigateToAnnouncement = { navController.navigate(AnnouncementRoute) },
+                    onNavigateToAnnouncement = { tab -> navController.navigate(AnnouncementRoute(initialTab = tab)) },
                     onNavigateToApproval = { navController.navigate(ApprovalRoute) },
                     onNavigateToKasbon = { navController.navigate(KasbonRoute) },
                     onNavigateToReimburse = { navController.navigate(ReimburseRoute) },
@@ -96,6 +145,12 @@ fun App() {
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToMap = { action -> 
                         navController.navigate(MapAttendanceRoute(action))
+                    },
+                    onNavigateToOvertime = {
+                        navController.navigate(OvertimeRoute)
+                    },
+                    onNavigateToAnnouncement = { tab ->
+                        navController.navigate(AnnouncementRoute(initialTab = tab))
                     }
                 )
             }
@@ -105,8 +160,11 @@ fun App() {
                 com.jangeby.system.ui.attendance.MapAttendanceScreen(
                     action = route.action,
                     onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onSubmitSuccess = {
                         navController.navigate(AttendanceRoute) {
-                            popUpTo(AttendanceRoute) { inclusive = false }
+                            popUpTo(DashboardRoute) { inclusive = false }
                             launchSingleTop = true
                         }
                     }
@@ -133,8 +191,12 @@ fun App() {
                 NotificationScreen(onNavigateBack = { navController.popBackStack() })
             }
 
-            composable<AnnouncementRoute> {
-                AnnouncementScreen(onNavigateBack = { navController.popBackStack() })
+            composable<AnnouncementRoute> { backStackEntry ->
+                val route = backStackEntry.toRoute<AnnouncementRoute>()
+                AnnouncementScreen(
+                    initialTab = route.initialTab,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
 
             composable<ApprovalRoute> {
@@ -182,5 +244,15 @@ fun App() {
                 )
             }
         }
+
+        if (securityViolation !is SecurityViolation.None) {
+            SecurityBlockerScreen(
+                violation = securityViolation,
+                onOpenSettings = { SecurityChecker.openDeveloperSettings() },
+                onRecheck = { SecurityChecker.checkSecurity() },
+                onExitApp = { SecurityChecker.exitApp() }
+            )
+        }
     }
+}
 }

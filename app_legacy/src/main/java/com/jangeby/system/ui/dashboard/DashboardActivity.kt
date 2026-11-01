@@ -357,8 +357,11 @@ class DashboardActivity : AppCompatActivity() {
         findViewById<View>(R.id.cardAsset).setOnClickListener {
             startActivity(Intent(this, com.jangeby.system.ui.asset.AssetActivity::class.java))
         }
-        findViewById<View>(R.id.cardReimburse)?.setOnClickListener {
-            startActivity(Intent(this, com.jangeby.system.ui.reimburse.ReimburseActivity::class.java))
+        findViewById<View>(R.id.cardReimburse)?.apply {
+            visibility = View.GONE
+            setOnClickListener {
+                startActivity(Intent(this@DashboardActivity, com.jangeby.system.ui.reimburse.ReimburseActivity::class.java))
+            }
         }
         findViewById<View>(R.id.cardKasbon).setOnClickListener {
             startActivity(Intent(this, com.jangeby.system.ui.kasbon.KasbonActivity::class.java))

@@ -3,6 +3,7 @@ package com.jangeby.system.hardware
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
@@ -98,12 +99,22 @@ private fun obtainFreshLocation(context: Context, onResult: (LocationResult) -> 
                     completed = true
                     handler.removeCallbacks(timeoutRunnable)
                     if (location != null) {
-                        onResult(LocationResult(location.latitude, location.longitude, true))
+                        if (isLocationMock(context, location)) {
+                            com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Koordinat GPS berasal dari Fake GPS / Mock Location")
+                            onResult(LocationResult(0.0, 0.0, false, "Terdeteksi lokasi palsu (Fake GPS). Dilarang menggunakan Fake GPS!"))
+                        } else {
+                            onResult(LocationResult(location.latitude, location.longitude, true))
+                        }
                     } else {
                         // If null, check lastLocation first or fallback to LocationManager
                         fusedClient.lastLocation.addOnSuccessListener { lastLoc ->
                             if (lastLoc != null) {
-                                onResult(LocationResult(lastLoc.latitude, lastLoc.longitude, true))
+                                if (isLocationMock(context, lastLoc)) {
+                                    com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Koordinat GPS berasal dari Fake GPS / Mock Location")
+                                    onResult(LocationResult(0.0, 0.0, false, "Terdeteksi lokasi palsu (Fake GPS). Dilarang menggunakan Fake GPS!"))
+                                } else {
+                                    onResult(LocationResult(lastLoc.latitude, lastLoc.longitude, true))
+                                }
                             } else {
                                 fallbackToLocationManager(context, onResult)
                             }
@@ -158,7 +169,12 @@ private fun fallbackToLocationManager(context: Context, onResult: (LocationResul
                 if (!delivered) {
                     delivered = true
                     try { locationManager.removeUpdates(this) } catch (_: Exception) {}
-                    onResult(LocationResult(location.latitude, location.longitude, true))
+                    if (isLocationMock(context, location)) {
+                        com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Koordinat GPS berasal dari Fake GPS / Mock Location")
+                        onResult(LocationResult(0.0, 0.0, false, "Terdeteksi lokasi palsu (Fake GPS). Dilarang menggunakan Fake GPS!"))
+                    } else {
+                        onResult(LocationResult(location.latitude, location.longitude, true))
+                    }
                 }
             }
             @Deprecated("Deprecated in Java")
@@ -177,7 +193,12 @@ private fun fallbackToLocationManager(context: Context, onResult: (LocationResul
                 } catch (_: Exception) { null }
 
                 if (lastKnown != null) {
-                    onResult(LocationResult(lastKnown.latitude, lastKnown.longitude, true))
+                    if (isLocationMock(context, lastKnown)) {
+                        com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Koordinat GPS berasal dari Fake GPS / Mock Location")
+                        onResult(LocationResult(0.0, 0.0, false, "Terdeteksi lokasi palsu (Fake GPS). Dilarang menggunakan Fake GPS!"))
+                    } else {
+                        onResult(LocationResult(lastKnown.latitude, lastKnown.longitude, true))
+                    }
                 } else {
                     onResult(LocationResult(0.0, 0.0, false, "Gagal mendapatkan koordinat GPS terbaru."))
                 }
@@ -194,7 +215,12 @@ private fun fallbackToLocationManager(context: Context, onResult: (LocationResul
                 handler.removeCallbacks(timeoutRunnable)
                 val lastKnown = locationManager.getLastKnownLocation(provider)
                 if (lastKnown != null) {
-                    onResult(LocationResult(lastKnown.latitude, lastKnown.longitude, true))
+                    if (isLocationMock(context, lastKnown)) {
+                        com.jangeby.system.security.SecurityChecker.setMockDetected(true, "Koordinat GPS berasal dari Fake GPS / Mock Location")
+                        onResult(LocationResult(0.0, 0.0, false, "Terdeteksi lokasi palsu (Fake GPS). Dilarang menggunakan Fake GPS!"))
+                    } else {
+                        onResult(LocationResult(lastKnown.latitude, lastKnown.longitude, true))
+                    }
                 } else {
                     onResult(LocationResult(0.0, 0.0, false, e.message ?: "Gagal mendapatkan lokasi"))
                 }
@@ -206,3 +232,19 @@ private fun fallbackToLocationManager(context: Context, onResult: (LocationResul
         onResult(LocationResult(0.0, 0.0, false, "Gagal mengambil lokasi: ${e.message}"))
     }
 }
+
+private fun isLocationMock(context: Context, location: Location?): Boolean {
+    if (location == null) return false
+    // Mock GPS dan lokasi palsu hanya diperiksa ketika APK versi RELEASE.
+    // Pada versi debug, jangan jalankan pengecekan agar memudahkan testing / emulator.
+    val isDebuggable = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    if (isDebuggable) return false
+
+    return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+        location.isMock
+    } else {
+        @Suppress("DEPRECATION")
+        location.isFromMockProvider
+    }
+}
+

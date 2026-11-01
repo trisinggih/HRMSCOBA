@@ -12,10 +12,83 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jangeby.system.ui.theme.Primary
 import com.jangeby.system.ui.theme.PrimaryVariant
+
+/**
+ * Dedicated Payslip / Receipt icon matching ic_google_payslip.
+ */
+val PayslipIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "Payslip",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 960f,
+        viewportHeight = 960f
+    ).path(fill = SolidColor(Color.Black)) {
+        moveTo(120f, 880f)
+        verticalLineToRelative(-800f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        lineToRelative(60f, 60f)
+        lineToRelative(60f, -60f)
+        verticalLineToRelative(800f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        lineToRelative(-60f, -60f)
+        lineToRelative(-60f, 60f)
+        close()
+
+        moveTo(240f, 680f)
+        horizontalLineToRelative(480f)
+        verticalLineToRelative(-80f)
+        lineTo(240f, 600f)
+        verticalLineToRelative(80f)
+        close()
+
+        moveTo(240f, 520f)
+        horizontalLineToRelative(480f)
+        verticalLineToRelative(-80f)
+        lineTo(240f, 440f)
+        verticalLineToRelative(80f)
+        close()
+
+        moveTo(240f, 360f)
+        horizontalLineToRelative(480f)
+        verticalLineToRelative(-80f)
+        lineTo(240f, 280f)
+        verticalLineToRelative(80f)
+        close()
+
+        moveTo(200f, 764f)
+        horizontalLineToRelative(560f)
+        verticalLineToRelative(-568f)
+        lineTo(200f, 196f)
+        verticalLineToRelative(568f)
+        close()
+    }.build()
+}
 
 /**
  * Standard TopAppBar with gradient background matching the original app design.
@@ -62,7 +135,7 @@ fun HrmsTopBar(
 fun StatusChip(status: String) {
     val (bg, textColor, label) = when (status.lowercase()) {
         "approved", "hadir", "present" -> Triple(Color(0xFFDCFCE7), Color(0xFF16A34A), "Disetujui")
-        "pending" -> Triple(Color(0xFFFEF9C3), Color(0xFFB45309), "Menunggu")
+        "pending", "in_review" -> Triple(Color(0xFFFEF9C3), Color(0xFFB45309), "Menunggu")
         "rejected" -> Triple(Color(0xFFFFE4E6), Color(0xFFDC2626), "Ditolak")
         "late" -> Triple(Color(0xFFFFF7ED), Color(0xFFEA580C), "Terlambat")
         "absent" -> Triple(Color(0xFFFFE4E6), Color(0xFFDC2626), "Mangkir")

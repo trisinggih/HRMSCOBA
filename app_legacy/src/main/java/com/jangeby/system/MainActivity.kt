@@ -160,8 +160,15 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (!companyData.logo.isNullOrEmpty() && ivLogo != null && !isFinishing && !isDestroyed) {
                         var urlStr = companyData.logo!!
-                        if (urlStr.startsWith("http://")) {
-                            urlStr = urlStr.replaceFirst("http://", "https://")
+                        val isLocal = ApiClient.BASE_URL.startsWith("http://") || urlStr.contains(":8011") || urlStr.contains("192.168.") || urlStr.contains("10.0.2.2")
+                        if (isLocal) {
+                            if (urlStr.startsWith("https://")) {
+                                urlStr = urlStr.replaceFirst("https://", "http://")
+                            }
+                        } else {
+                            if (urlStr.startsWith("http://")) {
+                                urlStr = urlStr.replaceFirst("http://", "https://")
+                            }
                         }
                         com.bumptech.glide.Glide.with(this@MainActivity)
                             .load(urlStr)

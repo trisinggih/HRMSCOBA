@@ -15,7 +15,8 @@ class PengajuanActivity : AppCompatActivity() {
     private lateinit var binding: ActivityPengajuanBinding
     private lateinit var adapter: PengajuanListAdapter
 
-    private val tabs = listOf("Sakit", "Ijin", "Tukar Hari", "Cuti")
+    // Tab "Tukar Hari" sementara di-hide
+    private val tabs = listOf("Sakit", "Ijin", "Cuti")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

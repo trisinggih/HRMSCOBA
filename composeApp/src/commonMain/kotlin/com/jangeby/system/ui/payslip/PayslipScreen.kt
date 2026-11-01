@@ -1,5 +1,6 @@
 package com.jangeby.system.ui.payslip
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -22,13 +23,13 @@ import com.jangeby.system.data.remote.PayslipDetailItem
 import com.jangeby.system.data.remote.PayslipItem
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PayslipScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PayslipViewModel = koinInject()
+    viewModel: PayslipViewModel = koinViewModel()
 ) {
     val payslipList by viewModel.payslips.collectAsState()
     val selectedPayslip by viewModel.selectedPayslip.collectAsState()
@@ -177,7 +178,7 @@ fun PayslipScreen(
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.List,
+                                                imageVector = PayslipIcon,
                                                 contentDescription = null,
                                                 tint = IconPayslip,
                                                 modifier = Modifier.size(24.dp)
@@ -303,6 +304,49 @@ fun PayslipDetailView(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+        }
+
+        // Prorate banner if employee joined after day 1
+        if (payslip.prorate?.isProrated == true) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Informasi Prorate Masuk Kerja",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF92400E),
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Bergabung tgl ${payslip.prorate.joinDate ?: "-"} (di atas tanggal 1). Gaji & tunjangan diprorate ${payslip.prorate.workingDays ?: 0}/${payslip.prorate.monthWorkingDays ?: 0} hari kerja.",
+                                color = Color(0xFFB45309),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
                 }
             }
         }

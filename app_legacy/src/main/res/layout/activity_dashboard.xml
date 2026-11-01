@@ -501,12 +501,13 @@
                     </com.google.android.material.card.MaterialCardView>
 
 
-                    <!-- Claims -->
+                    <!-- Claims (Sementara di-hide) -->
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/cardReimburse"
                         android:layout_width="0dp"
                         android:layout_height="85dp"
                         android:layout_columnWeight="1"
+                        android:visibility="gone"
                         app:cardBackgroundColor="@color/white"
                         app:cardCornerRadius="16dp"
                         app:cardElevation="2dp"

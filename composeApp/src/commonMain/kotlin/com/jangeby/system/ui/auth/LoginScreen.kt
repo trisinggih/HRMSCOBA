@@ -28,6 +28,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun LoginScreen(
     onNavigateToDashboard: () -> Unit,
+    onNavigateToRegister: () -> Unit = {},
     viewModel: LoginViewModel = koinViewModel()
 ) {
     var email by remember { mutableStateOf("") }
@@ -210,6 +211,28 @@ fun LoginScreen(
                                     color = Color.White
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Opsi Registrasi Akun Baru
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Belum memiliki akun? ",
+                                fontSize = 13.sp,
+                                color = Color(0xFF64748B)
+                            )
+                            Text(
+                                text = "Daftar Sekarang",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = primaryTeal,
+                                modifier = Modifier.clickable { onNavigateToRegister() }
+                            )
                         }
                     }
                 }

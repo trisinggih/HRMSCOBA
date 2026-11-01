@@ -13,8 +13,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
 import io.github.vinceglb.filekit.core.PlatformFile
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -110,11 +114,18 @@ class PengajuanViewModel : ViewModel() {
                     val apiResponse: ApiResponse<PaginatedResponse<SickLeaveRequestItem>> = response.body()
                     val items = apiResponse.data?.data ?: emptyList()
                     _sakitHistory.value = items.map {
+                        val startFormatted = formatDateIndoFull(it.startDate)
+                        val dateText = if (!it.endDate.isNullOrBlank() && it.endDate.take(10) != it.startDate?.take(10)) {
+                            val endFormatted = formatDateIndoFull(it.endDate)
+                            "Tanggal: $startFormatted s/d $endFormatted"
+                        } else {
+                            "Tanggal: $startFormatted"
+                        }
                         PengajuanHistoryItem(
                             id = it.id,
                             type = "sakit",
                             title = "Izin Sakit",
-                            date = formatDateDMY(it.startDate),
+                            date = dateText,
                             description = it.reason ?: "-",
                             status = it.status ?: "pending",
                             approval = it.approval,
@@ -135,12 +146,30 @@ class PengajuanViewModel : ViewModel() {
                     val apiResponse: ApiResponse<PaginatedResponse<PermitRequestItem>> = response.body()
                     val items = apiResponse.data?.data ?: emptyList()
                     _izinHistory.value = items.map {
-                        val timeStr = if (it.startTime != null && it.endTime != null) " ${it.startTime.take(5)} - ${it.endTime.take(5)}" else ""
+                        val titleText = when (it.type) {
+                            "business" -> "Izin Dinas Luar Kota"
+                            "out_of_office", "izin_keluar" -> "Izin Keluar"
+                            "personal" -> "Izin Pribadi"
+                            "family" -> "Urusan Keluarga"
+                            "urgent" -> "Mendesak / Urgent"
+                            "other" -> "Izin Lainnya"
+                            else -> "Izin ${it.type?.replaceFirstChar { char -> char.uppercase() } ?: ""}"
+                        }
+                        val finalStartDate = it.startDate ?: it.date
+                        val finalEndDate = it.endDate ?: finalStartDate
+                        val isMultiDay = !finalEndDate.isNullOrBlank() && !finalStartDate.isNullOrBlank() && finalEndDate.take(10) != finalStartDate.take(10)
+                        val isExitPermit = it.type in listOf("out_of_office", "izin_keluar")
+                        val timeStr = if (!isMultiDay && isExitPermit && it.startTime != null && it.endTime != null) " · ${it.startTime.take(5)} - ${it.endTime.take(5)}" else ""
+                        val dateText = if (isMultiDay) {
+                            "${com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(finalStartDate)} s/d ${com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(finalEndDate)}"
+                        } else {
+                            com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(finalStartDate) + timeStr
+                        }
                         PengajuanHistoryItem(
                             id = it.id,
                             type = "izin",
-                            title = "Izin ${it.type?.replaceFirstChar { char -> char.uppercase() } ?: ""}",
-                            date = formatDateDMY(it.date) + timeStr,
+                            title = titleText,
+                            date = dateText,
                             description = it.reason ?: "-",
                             status = it.status ?: "pending",
                             approval = it.approval,
@@ -203,27 +232,11 @@ class PengajuanViewModel : ViewModel() {
     }
 
     fun formatDateDMY(dateStr: String?): String {
-        if (dateStr.isNullOrBlank()) return "-"
-        try {
-            val cleanStr = dateStr.replace("T", " ").substringBefore(".")
-            val parts = cleanStr.split(" ")
-            val dateParts = parts[0].split("-")
-            
-            if (dateParts.size == 3) {
-                val monthNames = listOf("", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des")
-                val mIndex = dateParts[1].toIntOrNull() ?: 0
-                val monthStr = if (mIndex in 1..12) monthNames[mIndex] else dateParts[1]
-                
-                if (parts.size > 1) {
-                    val timeParts = parts[1].split(":")
-                    if (timeParts.size >= 2) {
-                        return "${dateParts[2]}-$monthStr-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}"
-                    }
-                }
-                return "${dateParts[2]}-$monthStr-${dateParts[0]}"
-            }
-        } catch (e: Exception) { }
-        return dateStr
+        return com.jangeby.system.utils.DateTimeUtils.formatDateDMY(dateStr)
+    }
+
+    fun formatDateIndoFull(dateStr: String?): String {
+        return com.jangeby.system.utils.DateTimeUtils.formatDateIndoFull(dateStr)
     }
 
     fun submitSakit(startDate: String, endDate: String, reason: String, attachment: PlatformFile?) {
@@ -235,6 +248,18 @@ class PengajuanViewModel : ViewModel() {
             _state.value = PengajuanState.Error("Lampiran surat keterangan dokter wajib dilampirkan")
             return
         }
+        val finalEndDate = if (endDate.isNotBlank()) endDate else startDate
+        if (finalEndDate < startDate) {
+            _state.value = PengajuanState.Error("Tanggal selesai sakit tidak boleh sebelum tanggal mulai")
+            return
+        }
+        val nowJakarta = DateTimeUtils.nowInJakarta()
+        val todayStr = nowJakarta.date.toString()
+        val isPast10Wib = (nowJakarta.hour > 10) || (nowJakarta.hour == 10 && (nowJakarta.minute > 0 || nowJakarta.second > 0))
+        if (startDate <= todayStr && isPast10Wib) {
+            _state.value = PengajuanState.Error("Pengajuan izin sakit maksimal diajukan sebelum pukul 10:00 WIB")
+            return
+        }
         _state.value = PengajuanState.Loading
         viewModelScope.launch {
             try {
@@ -244,7 +269,7 @@ class PengajuanViewModel : ViewModel() {
                     setBody(MultiPartFormDataContent(
                         formData {
                             append("start_date", startDate)
-                            append("end_date", if (endDate.isNotBlank()) endDate else startDate)
+                            append("end_date", finalEndDate)
                             append("reason", reason)
                             append("medical_certificate", fileBytes, Headers.build {
                                 append(HttpHeaders.ContentType, "image/*")
@@ -268,16 +293,48 @@ class PengajuanViewModel : ViewModel() {
 
     fun submitIzin(
         type: String = "personal",
-        date: String,
-        startTime: String,
-        endTime: String,
+        startDate: String,
+        toDate: String = "",
+        startTime: String = "",
+        endTime: String = "",
         reason: String,
         attachment: PlatformFile?
     ) {
-        if (date.isBlank() || reason.isBlank()) {
+        if (startDate.isBlank() || reason.isBlank()) {
             _state.value = PengajuanState.Error("Tanggal izin dan alasan wajib diisi")
             return
         }
+
+        val today = DateTimeUtils.nowInJakarta().date
+        val targetStart = runCatching { LocalDate.parse(startDate.take(10)) }.getOrNull()
+        val isExitPermit = (type == "out_of_office" || type == "izin_keluar")
+        val finalEndDate = if (isExitPermit || toDate.isBlank()) startDate else toDate
+        val targetEnd = runCatching { LocalDate.parse(finalEndDate.take(10)) }.getOrNull()
+
+        if (isExitPermit) {
+            if (targetStart != today) {
+                _state.value = PengajuanState.Error("Pengajuan izin keluar hanya dapat diajukan untuk hari ini")
+                return
+            }
+            if (startTime.isBlank() || endTime.isBlank()) {
+                _state.value = PengajuanState.Error("Jam keluar dan jam kembali wajib diisi")
+                return
+            }
+            if (endTime <= startTime) {
+                _state.value = PengajuanState.Error("Jam kembali harus setelah jam keluar")
+                return
+            }
+        } else {
+            if (targetStart != null && targetStart < today) {
+                _state.value = PengajuanState.Error("Tanggal izin tidak boleh sebelum hari ini")
+                return
+            }
+            if (targetStart != null && targetEnd != null && targetEnd < targetStart) {
+                _state.value = PengajuanState.Error("Tanggal selesai izin tidak boleh sebelum tanggal mulai")
+                return
+            }
+        }
+
         val sTime = if (startTime.isNotBlank()) startTime else "08:00"
         val eTime = if (endTime.isNotBlank()) endTime else "17:00"
 
@@ -290,7 +347,10 @@ class PengajuanViewModel : ViewModel() {
                     setBody(MultiPartFormDataContent(
                         formData {
                             append("type", type)
-                            append("date", date)
+                            append("date", startDate)
+                            append("start_date", startDate)
+                            append("end_date", finalEndDate)
+                            append("to_date", finalEndDate)
                             append("start_time", sTime)
                             append("end_time", eTime)
                             append("reason", reason)
@@ -325,6 +385,14 @@ class PengajuanViewModel : ViewModel() {
             _state.value = PengajuanState.Error("Tanggal pengganti harus berbeda dari tanggal kerja asli")
             return
         }
+        val today = DateTimeUtils.nowInJakarta().date
+        val tomorrow = today.plus(DatePeriod(days = 1))
+        val targetWork = runCatching { LocalDate.parse(workDate.take(10)) }.getOrNull()
+        val targetSwap = runCatching { LocalDate.parse(swapDate.take(10)) }.getOrNull()
+        if ((targetWork != null && targetWork < tomorrow) || (targetSwap != null && targetSwap < tomorrow)) {
+            _state.value = PengajuanState.Error("Pengajuan tukar hari wajib dilakukan minimal H-1 (mulai dari besok)")
+            return
+        }
         _state.value = PengajuanState.Loading
         viewModelScope.launch {
             try {
@@ -352,6 +420,17 @@ class PengajuanViewModel : ViewModel() {
             return
         }
         val finalEndDate = if (endDate.isNotBlank()) endDate else startDate
+        if (finalEndDate < startDate) {
+            _state.value = PengajuanState.Error("Tanggal selesai cuti tidak boleh sebelum tanggal mulai")
+            return
+        }
+        val today = DateTimeUtils.nowInJakarta().date
+        val tomorrow = today.plus(DatePeriod(days = 1))
+        val targetStart = runCatching { LocalDate.parse(startDate.take(10)) }.getOrNull()
+        if (targetStart != null && targetStart < tomorrow) {
+            _state.value = PengajuanState.Error("Pengajuan cuti wajib diajukan minimal H-1 (mulai dari besok)")
+            return
+        }
         _state.value = PengajuanState.Loading
         viewModelScope.launch {
             try {

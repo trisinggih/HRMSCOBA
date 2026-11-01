@@ -16,9 +16,10 @@ actual fun MapViewComponent(
     branchLatitude: Double?,
     branchLongitude: Double?,
     radius: Double,
+    branches: List<BranchItemData>,
     recenterTrigger: Long
 ) {
     Box(modifier = modifier.background(Color.LightGray), contentAlignment = Alignment.Center) {
-        Text("Map View (iOS Mock)\nLat: $latitude, Lon: $longitude\nBranch Radius: ${radius.toInt()}m")
+        Text("Map View (iOS Mock)\nLat: $latitude, Lon: $longitude\nBranches: ${branches.size}")
     }
 }

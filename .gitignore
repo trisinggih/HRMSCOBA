@@ -17,6 +17,10 @@ local.properties
 *.dex
 *.apk
 *.aab
+*.dm
+androidApp/release/
+app_legacy/release/
+app_legacy/debug/
 
 # OS files
 .DS_Store

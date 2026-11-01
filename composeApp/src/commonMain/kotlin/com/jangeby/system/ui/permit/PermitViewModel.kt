@@ -13,6 +13,11 @@ import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
 
 class PermitViewModel : ViewModel() {
 
@@ -69,15 +74,36 @@ class PermitViewModel : ViewModel() {
 
     fun submitPermit(
         type: String,
-        date: String,
-        startTime: String,
-        endTime: String,
+        startDate: String,
+        endDate: String? = null,
+        startTime: String? = null,
+        endTime: String? = null,
         reason: String,
         attachment: PlatformFile?,
         onSuccess: () -> Unit
     ) {
         _isSubmitting.value = true
         _errorMessage.value = null
+
+        val finalEndDate = if (!endDate.isNullOrBlank()) endDate else startDate
+        val today = DateTimeUtils.nowInJakarta().date
+        val targetDate = runCatching { LocalDate.parse(startDate.take(10)) }.getOrNull()
+        val isExitPermit = type.lowercase() in listOf("out_of_office", "izin_keluar")
+
+        if (isExitPermit) {
+            if (targetDate != null && targetDate != today) {
+                _errorMessage.value = "Pengajuan izin keluar hanya dapat diajukan untuk hari ini"
+                _isSubmitting.value = false
+                return
+            }
+        } else {
+            if (targetDate != null && targetDate < today) {
+                _errorMessage.value = "Pengajuan izin tidak boleh sebelum hari ini"
+                _isSubmitting.value = false
+                return
+            }
+        }
+
         viewModelScope.launch {
             try {
                 val client = ApiClient.create()
@@ -88,9 +114,11 @@ class PermitViewModel : ViewModel() {
                         MultiPartFormDataContent(
                             formData {
                                 append("type", type)
-                                append("date", date)
-                                append("start_time", startTime)
-                                append("end_time", endTime)
+                                append("date", startDate)
+                                append("start_date", startDate)
+                                append("end_date", finalEndDate)
+                                if (!startTime.isNullOrBlank()) append("start_time", startTime)
+                                if (!endTime.isNullOrBlank()) append("end_time", endTime)
                                 append("reason", reason)
                                 if (attachmentBytes != null && attachment != null) {
                                     append("attachment", attachmentBytes, Headers.build {
@@ -161,26 +189,28 @@ class PermitViewModel : ViewModel() {
     }
 
     fun formatDateDMY(dateStr: String?): String {
-        if (dateStr.isNullOrBlank()) return "-"
-        try {
-            val cleanStr = dateStr.replace("T", " ").substringBefore(".")
-            val parts = cleanStr.split(" ")
-            val dateParts = parts[0].split("-")
+        return com.jangeby.system.utils.DateTimeUtils.formatDateDMY(dateStr)
+    }
 
-            if (dateParts.size == 3) {
-                val monthNames = listOf("", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des")
-                val mIndex = dateParts[1].toIntOrNull() ?: 0
-                val monthStr = if (mIndex in 1..12) monthNames[mIndex] else dateParts[1]
+    fun formatDateOnlyDMY(dateStr: String?): String {
+        return com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(dateStr)
+    }
 
-                if (parts.size > 1) {
-                    val timeParts = parts[1].split(":")
-                    if (timeParts.size >= 2) {
-                        return "${dateParts[2]} $monthStr ${dateParts[0]}, ${timeParts[0]}:${timeParts[1]}"
-                    }
-                }
-                return "${dateParts[2]} $monthStr ${dateParts[0]}"
+    fun formatPermitDateRange(item: PermitRequestItem): String {
+        val start = item.startDate ?: item.date
+        val end = item.endDate ?: start
+        val isMultiDay = !end.isNullOrBlank() && !start.isNullOrBlank() && end.take(10) != start.take(10)
+        val isExitPermit = item.type?.lowercase() in listOf("out_of_office", "izin_keluar")
+
+        return if (isMultiDay) {
+            "${formatDateOnlyDMY(start)} s/d ${formatDateOnlyDMY(end)}"
+        } else {
+            val singleDate = formatDateOnlyDMY(start)
+            if (isExitPermit && (!item.startTime.isNullOrBlank() || !item.endTime.isNullOrBlank())) {
+                "$singleDate · ${item.startTime?.take(5) ?: "-"} - ${item.endTime?.take(5) ?: "-"}"
+            } else {
+                singleDate
             }
-        } catch (_: Exception) { }
-        return dateStr
+        }
     }
 }

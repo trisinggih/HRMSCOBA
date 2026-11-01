@@ -131,26 +131,6 @@ class CheckPointViewModel : ViewModel() {
     }
 
     fun formatDateDMY(dateStr: String?): String {
-        if (dateStr.isNullOrBlank()) return "-"
-        try {
-            val cleanStr = dateStr.replace("T", " ").substringBefore(".")
-            val parts = cleanStr.split(" ")
-            val dateParts = parts[0].split("-")
-            
-            if (dateParts.size == 3) {
-                val monthNames = listOf("", "Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des")
-                val mIndex = dateParts[1].toIntOrNull() ?: 0
-                val monthStr = if (mIndex in 1..12) monthNames[mIndex] else dateParts[1]
-                
-                if (parts.size > 1) {
-                    val timeParts = parts[1].split(":")
-                    if (timeParts.size >= 2) {
-                        return "${dateParts[2]}-$monthStr-${dateParts[0]} ${timeParts[0]}:${timeParts[1]}"
-                    }
-                }
-                return "${dateParts[2]}-$monthStr-${dateParts[0]}"
-            }
-        } catch (e: Exception) { }
-        return dateStr ?: "-"
+        return com.jangeby.system.utils.DateTimeUtils.formatDateDMY(dateStr)
     }
 }

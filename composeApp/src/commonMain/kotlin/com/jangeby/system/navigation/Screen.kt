@@ -9,6 +9,15 @@ object SplashRoute
 object LoginRoute
 
 @Serializable
+object RegisterRoute
+
+@Serializable
+data class OtpVerificationRoute(
+    val email: String,
+    val name: String
+)
+
+@Serializable
 object DashboardRoute
 
 @Serializable
@@ -30,7 +39,7 @@ object TaskRoute
 object NotificationRoute
 
 @Serializable
-object AnnouncementRoute
+data class AnnouncementRoute(val initialTab: Int = 0)
 
 @Serializable
 object ApprovalRoute

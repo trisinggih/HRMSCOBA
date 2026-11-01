@@ -1,7 +1,10 @@
 package com.jangeby.system.ui.pengajuan
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -22,12 +25,15 @@ import com.jangeby.system.ui.theme.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalUriHandler
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import com.jangeby.system.utils.DateTimeUtils
 
 import androidx.compose.foundation.lazy.LazyRow
 import com.jangeby.system.data.remote.ApprovalItem
-import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import io.github.vinceglb.filekit.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.core.PickerMode
 import io.github.vinceglb.filekit.core.PickerType
@@ -47,10 +53,11 @@ data class PengajuanHistoryItem(
 @Composable
 fun PengajuanScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PengajuanViewModel = koinInject()
+    viewModel: PengajuanViewModel = koinViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Sakit", "Izin", "Tukar Hari", "Cuti")
+    // Tab "Tukar Hari" sementara di-hide sesuai instruksi
+    val tabs = listOf("Sakit", "Izin", "Cuti")
 
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedApprovalItem by remember { mutableStateOf<PengajuanHistoryItem?>(null) }
@@ -71,9 +78,9 @@ fun PengajuanScreen(
         viewModel.loadAllData()
     }
 
-    // Memuat ulang saldo cuti & riwayat cuti dari database saat tab Cuti (selectedTab == 3) dibuka
+    // Memuat ulang saldo cuti & riwayat cuti dari database saat tab Cuti dibuka
     LaunchedEffect(selectedTab) {
-        if (selectedTab == 3) {
+        if (tabs.getOrNull(selectedTab) == "Cuti") {
             viewModel.loadSaldoCuti()
             viewModel.loadCutiHistory()
         }
@@ -84,6 +91,7 @@ fun PengajuanScreen(
         when (val currentState = state) {
             is PengajuanState.Success -> {
                 showBottomSheet = false
+                viewModel.loadAllData()
                 snackbarHostState.showSnackbar(currentState.message)
                 viewModel.resetState()
             }
@@ -138,17 +146,19 @@ fun PengajuanScreen(
                 }
             }
 
-            val currentType = when (selectedTab) {
-                0 -> "sakit"
-                1 -> "izin"
-                2 -> "tukar_hari"
+            val currentTabName = tabs.getOrNull(selectedTab) ?: "Sakit"
+
+            val currentType = when (currentTabName) {
+                "Sakit" -> "sakit"
+                "Izin" -> "izin"
+                "Tukar Hari" -> "tukar_hari"
                 else -> "cuti"
             }
 
-            val activeList = when (selectedTab) {
-                0 -> sakitList
-                1 -> izinList
-                2 -> tukarHariList
+            val activeList = when (currentTabName) {
+                "Sakit" -> sakitList
+                "Izin" -> izinList
+                "Tukar Hari" -> tukarHariList
                 else -> cutiList
             }
 
@@ -158,10 +168,10 @@ fun PengajuanScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 88.dp)
             ) {
-                // TAMPILKAN SALDO CUTI HANYA JIKA TAB CUTI (selectedTab == 3)
-                if (selectedTab == 3) {
+                // TAMPILKAN SALDO CUTI HANYA JIKA TAB CUTI
+                if (currentTabName == "Cuti") {
                     item {
-                        val currentYear = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+                        val currentYear = DateTimeUtils.nowInJakarta().year
                         SaldoCutiCard(
                             typeName = saldoCutiItem?.leaveTypeName ?: "Cuti Tahunan",
                             year = saldoCutiItem?.year ?: currentYear,
@@ -230,14 +240,16 @@ fun PengajuanScreen(
 
         if (showBottomSheet) {
             ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
+                onDismissRequest = {
+                    showBottomSheet = false
+                    viewModel.resetState()
+                },
                 sheetState = sheetState,
                 containerColor = Color.White,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
             ) {
                 PengajuanFormContent(
-                    tabIndex = selectedTab,
-                    tabName = tabs[selectedTab],
+                    tabName = tabs.getOrNull(selectedTab) ?: "Sakit",
                     viewModel = viewModel,
                     onCancel = { showBottomSheet = false }
                 )
@@ -274,15 +286,17 @@ fun ApprovalDetailBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 10.dp)
-                .padding(bottom = 30.dp)
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 36.dp)
         ) {
             Text("Detail Pengajuan", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextPrimary)
             Spacer(modifier = Modifier.height(16.dp))
 
             val uriHandler = LocalUriHandler.current
             Text("Judul: ${item.title}", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text("Tanggal: ${item.date}", fontSize = 13.sp)
-            Text("Alasan: ${item.description}", fontSize = 13.sp)
+            Text(if (item.date.startsWith("Tanggal:", ignoreCase = true)) item.date else "Tanggal: ${item.date}", fontSize = 13.sp)
+            Text(if (item.description.startsWith("Keterangan:", ignoreCase = true) || item.description.startsWith("Alasan:", ignoreCase = true)) item.description else "Keterangan: ${item.description}", fontSize = 13.sp)
             Text("Status: ${item.status.uppercase()}", fontSize = 13.sp, fontWeight = FontWeight.Bold)
             if (item.attachmentUrl != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -310,29 +324,7 @@ fun ApprovalDetailBottomSheet(
             if (steps != null && steps.isNotEmpty()) {
                 steps.forEachIndexed { index, step ->
                     val isLast = index == steps.size - 1
-                    val stepOrder = step.order ?: (index + 1)
-                    val isCurrentStep = stepOrder == (detail?.currentStep ?: 1) && 
-                        (detail?.status == "pending" || detail?.status == "in_review")
-
-                    // Find actual decision log, ignoring system transitions like escalate or submit
-                    val log = detail?.logs?.findLast { 
-                        (it.stepId == step.id || (step.order != null && it.stepId == step.order.toLong())) &&
-                        it.action?.lowercase() !in listOf("escalate", "submit")
-                    }
-                    
-                    val actionName = log?.action?.uppercase() ?: "PENDING"
-                    val actionColor = when (log?.action?.lowercase()) {
-                        "approve", "approved" -> Color(0xFF4CAF50)
-                        "reject", "rejected" -> Color.Red
-                        "cancel", "cancelled" -> Color.Gray
-                        else -> if (isCurrentStep) Color(0xFFFFA000) else Color.LightGray
-                    }
-                    val expectedName = step.expectedApproverName ?: step.approverName ?: step.approverType ?: "Approver"
-                    val actionLabel = if (log != null) {
-                        "$actionName - ${log.approverName ?: expectedName}"
-                    } else {
-                        "PENDING - $expectedName"
-                    }
+                    val statusInfo = com.jangeby.system.utils.ApprovalUtils.resolveStepStatus(detail, step, index)
 
                     Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                         Column(
@@ -344,7 +336,7 @@ fun ApprovalDetailBottomSheet(
                                     .padding(top = 4.dp)
                                     .size(12.dp)
                                     .clip(CircleShape)
-                                    .background(actionColor)
+                                    .background(statusInfo.statusColor)
                             )
                             if (!isLast) {
                                 Box(
@@ -359,23 +351,47 @@ fun ApprovalDetailBottomSheet(
                         Spacer(modifier = Modifier.width(12.dp))
 
                         Column(modifier = Modifier.padding(bottom = 24.dp)) {
-                            Text(
-                                text = actionLabel,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            if (!log?.createdAt.isNullOrBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text(
-                                    text = viewModel.formatDateDMY(log?.createdAt),
+                                    text = "Tahap ${step.order ?: (index + 1)} • ${step.approverName ?: step.expectedApproverName ?: step.approverType ?: "Approver"}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(statusInfo.statusColor.copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = statusInfo.statusText,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = statusInfo.statusColor
+                                    )
+                                }
+                            }
+                            Text(
+                                text = statusInfo.actorLine,
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                            if (!statusInfo.dateText.isNullOrBlank()) {
+                                Text(
+                                    text = viewModel.formatDateDMY(statusInfo.dateText),
                                     fontSize = 12.sp,
                                     color = TextSecondary
                                 )
                             }
-                            if (!log?.note.isNullOrBlank()) {
+                            if (!statusInfo.note.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Catatan: ${log?.note}",
+                                    text = "Catatan: ${statusInfo.note}",
                                     fontSize = 13.sp,
                                     color = TextSecondary
                                 )
@@ -404,7 +420,7 @@ fun SaldoCutiCard(
     isLoading: Boolean = false,
     onRefresh: (() -> Unit)? = null
 ) {
-    val displayYear = year ?: Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+    val displayYear = year ?: DateTimeUtils.nowInJakarta().year
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -532,7 +548,6 @@ fun SaldoCutiCard(
 
 @Composable
 fun PengajuanFormContent(
-    tabIndex: Int,
     tabName: String,
     viewModel: PengajuanViewModel,
     onCancel: () -> Unit
@@ -543,7 +558,10 @@ fun PengajuanFormContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 12.dp)
+            .verticalScroll(rememberScrollState())
             .navigationBarsPadding()
+            .imePadding()
+            .padding(bottom = 36.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -579,11 +597,11 @@ fun PengajuanFormContent(
 
         val isLoading = state is PengajuanState.Loading
 
-        when (tabIndex) {
-            0 -> SakitFormContent(isLoading = isLoading) { start, end, reason, attachment -> viewModel.submitSakit(start, end, reason, attachment) }
-            1 -> IzinFormContent(isLoading = isLoading) { type, date, start, end, reason, attachment -> viewModel.submitIzin(type, date, start, end, reason, attachment) }
-            2 -> TukarHariFormContent(isLoading = isLoading) { workDate, swapDate, reason -> viewModel.submitTukarHari(workDate, swapDate, reason) }
-            3 -> CutiFormContent(viewModel = viewModel, isLoading = isLoading) { leaveTypeId, start, end, reason, attachment -> viewModel.submitCuti(leaveTypeId, start, end, reason, attachment) }
+        when (tabName) {
+            "Sakit" -> SakitFormContent(isLoading = isLoading) { start, end, reason, attachment -> viewModel.submitSakit(start, end, reason, attachment) }
+            "Izin" -> IzinFormContent(isLoading = isLoading) { type, start, end, sTime, eTime, reason, attachment -> viewModel.submitIzin(type, start, end, sTime, eTime, reason, attachment) }
+            "Tukar Hari" -> TukarHariFormContent(isLoading = isLoading) { workDate, swapDate, reason -> viewModel.submitTukarHari(workDate, swapDate, reason) }
+            else -> CutiFormContent(viewModel = viewModel, isLoading = isLoading) { leaveTypeId, start, end, reason, attachment -> viewModel.submitCuti(leaveTypeId, start, end, reason, attachment) }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -600,15 +618,45 @@ fun SakitFormContent(
     var reason by remember { mutableStateOf("") }
     var attachment by remember { mutableStateOf<io.github.vinceglb.filekit.core.PlatformFile?>(null) }
 
+    val nowJakarta = DateTimeUtils.nowInJakarta()
+    val todayStr = nowJakarta.date.toString()
+    val isAfter10Am = (nowJakarta.hour > 10) || (nowJakarta.hour == 10 && (nowJakarta.minute > 0 || nowJakarta.second > 0))
+    val isDateBlocked = isAfter10Am && startDate.isNotBlank() && startDate <= todayStr
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E8FF)),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isAfter10Am) Color(0xFFFEE2E2) else Color(0xFFF3E8FF)
+        ),
         shape = RoundedCornerShape(8.dp)
     ) {
-        Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Info, null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Kirimkan pengajuan sebelum jam 10:00 WIB", fontSize = 11.sp, color = Color(0xFF5B21B6))
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                if (isAfter10Am) Icons.Default.Warning else Icons.Default.Info,
+                null,
+                tint = if (isAfter10Am) Color(0xFFDC2626) else Color(0xFF7C3AED),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Text(
+                    if (isAfter10Am) "Batas Waktu Pengajuan Berakhir" else "Ketentuan Pengajuan Izin Sakit",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isAfter10Am) Color(0xFF991B1B) else Color(0xFF5B21B6)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    if (isAfter10Am) "Pengajuan izin sakit untuk hari ini maksimal diajukan sebelum pukul 10:00 WIB."
+                    else "Kirimkan pengajuan sakit sebelum jam 10:00 WIB.",
+                    fontSize = 11.sp,
+                    color = if (isAfter10Am) Color(0xFFB91C1C) else Color(0xFF6D28D9),
+                    lineHeight = 15.sp
+                )
+            }
         }
     }
 
@@ -619,17 +667,39 @@ fun SakitFormContent(
             value = startDate,
             onValueChange = { 
                 startDate = it
-                if (endDate.isBlank()) endDate = it
+                if (endDate.isBlank() || endDate < it) endDate = it
             },
             label = "Tanggal Mulai",
+            minDate = todayStr,
             modifier = Modifier.weight(1f)
         )
         DatePickerField(
             value = endDate,
-            onValueChange = { endDate = it },
+            onValueChange = { 
+                if (startDate.isNotBlank() && it < startDate) {
+                    endDate = startDate
+                } else {
+                    endDate = it
+                }
+            },
             label = "Tanggal Selesai",
+            minDate = if (startDate.isNotBlank()) startDate else todayStr,
             modifier = Modifier.weight(1f)
         )
+    }
+
+    if (isDateBlocked) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Warning, null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                "Tidak dapat mengajukan sakit hari ini (lewat pukul 10:00 WIB)",
+                color = Color(0xFFDC2626),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -677,17 +747,27 @@ fun SakitFormContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    val isInvalidEndDate = startDate.isNotBlank() && endDate.isNotBlank() && endDate < startDate
+    val isSubmitEnabled = !isLoading && !isDateBlocked && !isInvalidEndDate && startDate.isNotEmpty() && reason.isNotEmpty() && attachment != null
+
     Button(
         onClick = { onSubmit(startDate, if (endDate.isNotBlank()) endDate else startDate, reason, attachment) },
         modifier = Modifier.fillMaxWidth().height(48.dp),
-        enabled = !isLoading && startDate.isNotEmpty() && reason.isNotEmpty() && attachment != null,
+        enabled = isSubmitEnabled,
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isDateBlocked) Color(0xFFDC2626) else Primary,
+            disabledContainerColor = if (isDateBlocked) Color(0xFFFECACA) else Color.LightGray
+        )
     ) {
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
             Spacer(modifier = Modifier.width(8.dp))
             Text("MENGIRIM...", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        } else if (isDateBlocked) {
+            Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp), tint = Color(0xFF991B1B))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("LEWAT BATAS JAM 10:00 WIB", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF991B1B))
         } else {
             Icon(Icons.Default.Send, null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -700,25 +780,87 @@ fun SakitFormContent(
 @Composable
 fun IzinFormContent(
     isLoading: Boolean = false,
-    onSubmit: (String, String, String, String, String, io.github.vinceglb.filekit.core.PlatformFile?) -> Unit
+    onSubmit: (String, String, String, String, String, String, io.github.vinceglb.filekit.core.PlatformFile?) -> Unit
 ) {
     val permissionTypes = remember {
         listOf(
             "Izin Pribadi" to "personal",
-            "Izin Dinas" to "business",
-            "Urusan Keluarga" to "family",
-            "Mendesak / Urgent" to "urgent",
-            "Lainnya" to "other"
+            "Izin Dinas Luar Kota" to "business",
+            "Izin Keluar" to "out_of_office"
         )
     }
     var selectedTypePair by remember { mutableStateOf(permissionTypes.first()) }
     var expandedType by remember { mutableStateOf(false) }
 
-    var date by remember { mutableStateOf("") }
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("08:00") }
     var endTime by remember { mutableStateOf("17:00") }
     var reason by remember { mutableStateOf("") }
     var attachment by remember { mutableStateOf<io.github.vinceglb.filekit.core.PlatformFile?>(null) }
+
+    val todayDate = DateTimeUtils.nowInJakarta().date
+    val todayStr = todayDate.toString()
+
+    val isExitPermit = selectedTypePair.second == "out_of_office"
+    val isBusinessTrip = selectedTypePair.second == "business"
+
+    LaunchedEffect(selectedTypePair) {
+        if (selectedTypePair.second == "out_of_office") {
+            startDate = todayStr
+            endDate = todayStr
+            startTime = "08:00"
+            endTime = "17:00"
+        } else {
+            if (startDate < todayStr) {
+                startDate = todayStr
+            }
+            if (endDate < startDate) {
+                endDate = startDate
+            }
+        }
+    }
+
+    // Advisory Note Card
+    Surface(
+        color = Color(0xFFEFF6FF),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(20.dp).padding(top = 1.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "Ketentuan Pengajuan Izin",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E40AF)
+                )
+                Text(
+                    text = when {
+                        isExitPermit -> "• Khusus Izin Keluar hanya dapat diajukan untuk hari ini.\n• Wajib menentukan jam keluar dan jam kembali."
+                        isBusinessTrip -> "• Izin Dinas Luar Kota dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal).\n• Memungkinkan presensi bebas lokasi setelah disetujui."
+                        else -> "• Izin Pribadi dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal)."
+                    },
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = Color(0xFF1E3A8A)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
 
     ExposedDropdownMenuBox(
         expanded = expandedType,
@@ -743,6 +885,17 @@ fun IzinFormContent(
                     onClick = {
                         selectedTypePair = pair
                         expandedType = false
+                        if (pair.second == "out_of_office") {
+                            startDate = todayStr
+                            endDate = todayStr
+                        } else {
+                            if (startDate.isNotBlank() && startDate < todayStr) {
+                                startDate = todayStr
+                            }
+                            if (endDate.isNotBlank() && endDate < startDate) {
+                                endDate = startDate
+                            }
+                        }
                     }
                 )
             }
@@ -751,28 +904,66 @@ fun IzinFormContent(
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    DatePickerField(
-        value = date,
-        onValueChange = { date = it },
-        label = "Tanggal Izin",
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        TimePickerField(
-            value = startTime,
-            onValueChange = { startTime = it },
-            label = "Jam Mulai",
-            modifier = Modifier.weight(1f)
+    if (isExitPermit) {
+        // Tanggal Izin Keluar (1 hari - hari ini)
+        DatePickerField(
+            value = startDate,
+            onValueChange = { 
+                startDate = it
+                endDate = it
+            },
+            label = "Tanggal Izin Keluar (Hanya Hari Ini)",
+            minDate = todayStr,
+            maxDate = todayStr,
+            modifier = Modifier.fillMaxWidth()
         )
-        TimePickerField(
-            value = endTime,
-            onValueChange = { endTime = it },
-            label = "Jam Selesai",
-            modifier = Modifier.weight(1f)
-        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Jam Keluar & Jam Kembali
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TimePickerField(
+                value = startTime,
+                onValueChange = { startTime = it },
+                label = "Jam Keluar",
+                modifier = Modifier.weight(1f)
+            )
+            TimePickerField(
+                value = endTime,
+                onValueChange = { endTime = it },
+                label = "Jam Kembali",
+                modifier = Modifier.weight(1f)
+            )
+        }
+    } else {
+        // Range Tanggal (Start Date minimal hari ini dan To Date)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DatePickerField(
+                value = startDate,
+                onValueChange = { 
+                    startDate = it
+                    if (endDate.isBlank() || endDate < it) {
+                        endDate = it
+                    }
+                },
+                label = "Tanggal Mulai",
+                minDate = todayStr,
+                modifier = Modifier.weight(1f)
+            )
+            DatePickerField(
+                value = endDate,
+                onValueChange = { 
+                    if (startDate.isNotBlank() && it < startDate) {
+                        endDate = startDate
+                    } else {
+                        endDate = it
+                    }
+                },
+                label = "Tanggal Selesai",
+                minDate = if (startDate.isNotBlank()) startDate else todayStr,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -820,10 +1011,22 @@ fun IzinFormContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    val isDateValid = if (isExitPermit) {
+        startDate == todayStr && startTime.isNotBlank() && endTime.isNotBlank() && endTime > startTime
+    } else {
+        startDate.isNotBlank() && endDate.isNotBlank() && startDate >= todayStr && endDate >= startDate
+    }
+
     Button(
-        onClick = { onSubmit(selectedTypePair.second, date, startTime, endTime, reason, attachment) },
+        onClick = { 
+            val finalStart = startDate
+            val finalEnd = if (isExitPermit || endDate.isBlank()) startDate else endDate
+            val finalStartTime = if (isExitPermit) startTime else "08:00"
+            val finalEndTime = if (isExitPermit) endTime else "17:00"
+            onSubmit(selectedTypePair.second, finalStart, finalEnd, finalStartTime, finalEndTime, reason, attachment) 
+        },
         modifier = Modifier.fillMaxWidth().height(48.dp),
-        enabled = !isLoading && date.isNotEmpty() && reason.isNotEmpty() && startTime.isNotEmpty() && endTime.isNotEmpty(),
+        enabled = !isLoading && isDateValid && reason.isNotBlank(),
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Primary)
     ) {
@@ -848,12 +1051,53 @@ fun TukarHariFormContent(
     var swapDate by remember { mutableStateOf("") }
     var reason by remember { mutableStateOf("") }
 
+    val todayDate = DateTimeUtils.nowInJakarta().date
+    val tomorrowStr = todayDate.plus(DatePeriod(days = 1)).toString()
+
     val isSameDate = workDate.isNotEmpty() && swapDate.isNotEmpty() && workDate == swapDate
+
+    // Advisory Note Card
+    Surface(
+        color = Color(0xFFEFF6FF),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(20.dp).padding(top = 1.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "Ketentuan Tukar Hari Kerja",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E40AF)
+                )
+                Text(
+                    text = "• Pengajuan tukar hari wajib dilakukan minimal H-1.",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = Color(0xFF1E3A8A)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
 
     DatePickerField(
         value = workDate,
         onValueChange = { workDate = it },
-        label = "Tanggal Kerja Asli",
+        label = "Tanggal Kerja Asli (Minimal Besok)",
+        minDate = tomorrowStr,
         modifier = Modifier.fillMaxWidth()
     )
 
@@ -862,7 +1106,8 @@ fun TukarHariFormContent(
     DatePickerField(
         value = swapDate,
         onValueChange = { swapDate = it },
-        label = "Ditukar Ke Tanggal",
+        label = "Ditukar Ke Tanggal (Minimal Besok)",
+        minDate = tomorrowStr,
         modifier = Modifier.fillMaxWidth()
     )
 
@@ -892,7 +1137,7 @@ fun TukarHariFormContent(
     Button(
         onClick = { onSubmit(workDate, swapDate, reason) },
         modifier = Modifier.fillMaxWidth().height(48.dp),
-        enabled = !isLoading && workDate.isNotEmpty() && swapDate.isNotEmpty() && reason.isNotEmpty() && !isSameDate,
+        enabled = !isLoading && workDate.isNotEmpty() && swapDate.isNotEmpty() && workDate >= tomorrowStr && swapDate >= tomorrowStr && reason.isNotEmpty() && !isSameDate,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Primary)
     ) {
@@ -971,6 +1216,9 @@ fun CutiFormContent(
     var reason by remember { mutableStateOf("") }
     var attachment by remember { mutableStateOf<io.github.vinceglb.filekit.core.PlatformFile?>(null) }
 
+    val todayDate = DateTimeUtils.nowInJakarta().date
+    val tomorrowStr = todayDate.plus(DatePeriod(days = 1)).toString()
+
     // Card Informasi Saldo Cuti dari Database
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1003,7 +1251,7 @@ fun CutiFormContent(
                     shape = RoundedCornerShape(12.dp),
                     color = Primary.copy(alpha = 0.15f)
                 ) {
-                    val currentYear = selectedTypeItem.year ?: Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
+                    val currentYear = selectedTypeItem.year ?: DateTimeUtils.nowInJakarta().year
                     Text(
                         "Tahun $currentYear",
                         fontSize = 11.sp,
@@ -1096,20 +1344,65 @@ fun CutiFormContent(
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    // Advisory Note Card
+    Surface(
+        color = Color(0xFFEFF6FF),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(20.dp).padding(top = 1.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = "Ketentuan Pengajuan Cuti",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF1E40AF)
+                )
+                Text(
+                    text = "• Pengajuan cuti wajib diajukan minimal H-1 (mulai dari besok).\n• Tanggal selesai tidak boleh sebelum tanggal mulai.",
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = Color(0xFF1E3A8A)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         DatePickerField(
             value = startDate,
             onValueChange = { 
                 startDate = it
-                if (endDate.isBlank()) endDate = it
+                if (endDate.isBlank() || endDate < it) endDate = it
             },
             label = "Tanggal Mulai",
+            minDate = tomorrowStr,
             modifier = Modifier.weight(1f)
         )
         DatePickerField(
             value = endDate,
-            onValueChange = { endDate = it },
+            onValueChange = { 
+                if (startDate.isNotBlank() && it < startDate) {
+                    endDate = startDate
+                } else {
+                    endDate = it
+                }
+            },
             label = "Tanggal Selesai",
+            minDate = if (startDate.isNotBlank()) startDate else tomorrowStr,
             modifier = Modifier.weight(1f)
         )
     }
@@ -1137,7 +1430,7 @@ fun CutiFormContent(
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         OutlinedButton(
-            onClick = { filePicker.launch() },
+            onClick = { filePicker.launch() }, 
             modifier = Modifier.weight(1f).height(50.dp),
             shape = RoundedCornerShape(10.dp)
         ) {
@@ -1159,12 +1452,15 @@ fun CutiFormContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
+    val isDatesValid = startDate.isNotEmpty() && startDate >= tomorrowStr && (endDate.isEmpty() || endDate >= startDate)
+    val isSubmitEnabled = !isLoading && isDatesValid && reason.isNotEmpty()
+
     Button(
         onClick = {
             onSubmit(selectedTypeItem.leaveTypeId, startDate, if (endDate.isNotBlank()) endDate else startDate, reason, attachment)
         },
         modifier = Modifier.fillMaxWidth().height(48.dp),
-        enabled = !isLoading && startDate.isNotEmpty() && reason.isNotEmpty(),
+        enabled = isSubmitEnabled,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Primary)
     ) {
@@ -1207,9 +1503,12 @@ fun PengajuanHistoryCard(item: PengajuanHistoryItem, onClick: () -> Unit) {
                         Icon(Icons.Default.Info, contentDescription = "Ada Lampiran", modifier = Modifier.size(14.dp), tint = Primary)
                     }
                 }
-                Text(item.date, fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(2.dp))
+                val dateDisplay = if (item.date.startsWith("Tanggal:", ignoreCase = true)) item.date else "Tanggal: ${item.date}"
+                Text(dateDisplay, fontSize = 12.sp, color = TextSecondary, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(item.description, fontSize = 12.sp, color = TextSecondary, maxLines = 1)
+                val descDisplay = if (item.description.startsWith("Keterangan:", ignoreCase = true) || item.description.startsWith("Alasan:", ignoreCase = true)) item.description else "Keterangan: ${item.description}"
+                Text(descDisplay, fontSize = 12.sp, color = TextSecondary, maxLines = 1)
             }
             Spacer(modifier = Modifier.width(8.dp))
             StatusChip(item.status)

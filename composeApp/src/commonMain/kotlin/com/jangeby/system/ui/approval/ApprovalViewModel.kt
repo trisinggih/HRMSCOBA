@@ -53,7 +53,7 @@ class ApprovalViewModel : ViewModel() {
             try {
                 val client = ApiClient.create()
                 val statusQuery = when (tabIndex) {
-                    0 -> "?status=pending"
+                    0 -> "?status=pending,in_review"
                     1 -> "?status=approved"
                     2 -> "?status=rejected"
                     else -> ""
@@ -112,17 +112,25 @@ class ApprovalViewModel : ViewModel() {
         _trackingItem.value = null
     }
 
-    fun approveRequest(id: Long, note: String?, tenor: Int?, onComplete: (Boolean, String?) -> Unit) {
+    fun approveRequest(id: Long, note: String?, tenor: Int?, approvedItemIds: List<Long>? = null, onComplete: (Boolean, String?) -> Unit) {
         _isActionLoading.value = true
         viewModelScope.launch {
             try {
                 val client = ApiClient.create()
                 val response = client.post(ApiClient.BASE_URL + "approval/requests/$id/approve") {
                     contentType(ContentType.Application.Json)
-                    setBody(ActionApprovalRequest(note = note?.takeIf { it.isNotBlank() }, tenor = tenor?.toString()))
+                    setBody(
+                        ActionApprovalRequest(
+                            note = note?.takeIf { it.isNotBlank() },
+                            tenor = tenor?.toString(),
+                            approvedItemIds = approvedItemIds
+                        )
+                    )
                 }
                 if (response.status.value in 200..299) {
                     val res: ApiResponse<ApprovalItem> = response.body()
+                    _approvals.value = _approvals.value.filter { it.id != id }
+                    _badgeCount.value = maxOf(0, _badgeCount.value - 1)
                     loadApprovals()
                     onComplete(true, res.message ?: "Pengajuan disetujui")
                 } else {
@@ -148,6 +156,8 @@ class ApprovalViewModel : ViewModel() {
                 }
                 if (response.status.value in 200..299) {
                     val res: ApiResponse<ApprovalItem> = response.body()
+                    _approvals.value = _approvals.value.filter { it.id != id }
+                    _badgeCount.value = maxOf(0, _badgeCount.value - 1)
                     loadApprovals()
                     onComplete(true, res.message ?: "Pengajuan ditolak")
                 } else {
