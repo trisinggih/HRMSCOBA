@@ -2,6 +2,8 @@ package com.jangeby.system.hardware
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
 import platform.CoreLocation.*
 import platform.Foundation.NSError
 import platform.darwin.NSObject
@@ -14,6 +16,7 @@ actual class LocationLauncher(
     }
 }
 
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun rememberLocationLauncher(onResult: (LocationResult) -> Unit): LocationLauncher {
     val delegate = remember {

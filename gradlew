@@ -118,6 +118,15 @@ esac
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
+# Auto-detect or fallback JAVA_HOME if invalid
+if [ -z "$JAVA_HOME" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
+    if [ -x "/Applications/DataGrip.app/Contents/jbr/Contents/Home/bin/java" ]; then
+        JAVA_HOME="/Applications/DataGrip.app/Contents/jbr/Contents/Home"
+    elif [ -x "$(/usr/libexec/java_home 2>/dev/null)/bin/java" ]; then
+        JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null)
+    fi
+fi
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
