@@ -1,11 +1,13 @@
 package com.jangeby.system.hardware
 
 import androidx.compose.ui.geometry.Offset
+import kotlinx.cinterop.ExperimentalForeignApi
 import platform.UIKit.*
 import platform.CoreGraphics.*
 import platform.Foundation.*
 
 actual object SignatureExporter {
+    @OptIn(ExperimentalForeignApi::class)
     actual fun exportToPngBase64(
         strokes: List<List<Offset>>,
         width: Int,
@@ -23,8 +25,8 @@ actual object SignatureExporter {
                 if (stroke.isEmpty()) continue
                 val path = UIBezierPath()
                 path.lineWidth = strokeWidth.toDouble()
-                path.lineCapStyle = kCGLineCapRound
-                path.lineJoinStyle = kCGLineJoinRound
+                path.lineCapStyle = CGLineCap.kCGLineCapRound
+                path.lineJoinStyle = CGLineJoin.kCGLineJoinRound
 
                 path.moveToPoint(CGPointMake(stroke[0].x.toDouble(), stroke[0].y.toDouble()))
                 for (i in 1 until stroke.size) {
