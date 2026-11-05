@@ -989,7 +989,7 @@ fun DashboardScreen(
             milestones = todayMilestonesForPopup,
             currentEmployeeId = appSettings.employeeId,
             myMilestoneToday = myMilestoneTodayForPopup,
-            companyName = appSettings.companyName ?: "Jangeby Group",
+            companyName = appSettings.companyName ?: "Organisasi",
             onDismiss = {
                 showMilestonePopup = false
                 appSettings.lastSeenMilestonePopupDate = DateTimeUtils.todayDateString()

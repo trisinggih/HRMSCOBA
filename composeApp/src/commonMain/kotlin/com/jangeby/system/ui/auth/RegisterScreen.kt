@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +42,16 @@ fun RegisterScreen(
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var selectedCompanyId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedBranchId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var companyExpanded by remember { mutableStateOf(false) }
+    var branchExpanded by remember { mutableStateOf(false) }
+    val registrationOptions by viewModel.registrationOptions.collectAsState()
+    val optionsLoading by viewModel.optionsLoading.collectAsState()
+    val optionsError by viewModel.optionsError.collectAsState()
+    val selectedCompany = registrationOptions.companies.firstOrNull { it.id == selectedCompanyId }
+    val availableBranches = registrationOptions.branches.filter { it.companyId == selectedCompanyId }
+    val selectedBranch = availableBranches.firstOrNull { it.id == selectedBranchId }
 
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmPasswordVisible by remember { mutableStateOf(false) }
@@ -119,7 +130,7 @@ fun RegisterScreen(
                         )
                     } else {
                         Text(
-                            text = companyName ?: "JANGEBY",
+                            text = "JANGEBY SYSTEM",
                             color = Color.White,
                             fontSize = 28.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -128,7 +139,7 @@ fun RegisterScreen(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Daftar untuk akses sistem karyawan",
+                        text = "Daftar untuk mengelola aktivitas kerja",
                         color = Color.White.copy(alpha = 0.9f),
                         fontSize = 13.sp
                     )
@@ -187,6 +198,74 @@ fun RegisterScreen(
                             )
                         )
 
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text("Perusahaan", fontSize = 12.sp, color = Color(0xFF64748B))
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { companyExpanded = true },
+                                enabled = !optionsLoading && optionsError == null && registerState !is RegisterState.Loading,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(selectedCompany?.name ?: if (optionsLoading) "Memuat perusahaan..." else "Pilih perusahaan", modifier = Modifier.fillMaxWidth())
+                            }
+                            DropdownMenu(
+                                expanded = companyExpanded,
+                                onDismissRequest = { companyExpanded = false },
+                                modifier = Modifier.heightIn(max = 280.dp)
+                            ) {
+                                registrationOptions.companies.forEach { company ->
+                                    DropdownMenuItem(
+                                        text = { Text(company.name) },
+                                        onClick = {
+                                            if (selectedCompanyId != company.id) selectedBranchId = null
+                                            selectedCompanyId = company.id
+                                            companyExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text("Cabang (Opsional)", fontSize = 12.sp, color = Color(0xFF64748B))
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = { branchExpanded = true },
+                                enabled = selectedCompany != null && availableBranches.isNotEmpty() && registerState !is RegisterState.Loading,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    selectedBranch?.name ?: when {
+                                        selectedCompany == null -> "Pilih perusahaan terlebih dahulu"
+                                        availableBranches.isEmpty() -> "Tidak ada cabang tersedia"
+                                        else -> "Pilih cabang (opsional)"
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = branchExpanded,
+                                onDismissRequest = { branchExpanded = false },
+                                modifier = Modifier.heightIn(max = 280.dp)
+                            ) {
+                                DropdownMenuItem(text = { Text("Tanpa cabang") }, onClick = {
+                                    selectedBranchId = null
+                                    branchExpanded = false
+                                })
+                                availableBranches.forEach { branch ->
+                                    DropdownMenuItem(text = { Text(branch.name) }, onClick = {
+                                        selectedBranchId = branch.id
+                                        branchExpanded = false
+                                    })
+                                }
+                            }
+                        }
+                        if (optionsError != null) {
+                            Text(optionsError.orEmpty(), color = Color(0xFFE11D48), fontSize = 12.sp)
+                            TextButton(onClick = { viewModel.loadRegistrationOptions() }) { Text("Coba lagi") }
+                        }
                         Spacer(modifier = Modifier.height(14.dp))
 
                         // Alamat Email
@@ -318,13 +397,15 @@ fun RegisterScreen(
                                     email = email,
                                     phone = phone,
                                     pass = password,
-                                    confirmPass = confirmPassword
+                                    confirmPass = confirmPassword,
+                                    companyId = selectedCompanyId,
+                                    branchId = selectedBranchId
                                 )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
-                            enabled = registerState !is RegisterState.Loading,
+                            enabled = registerState !is RegisterState.Loading && !optionsLoading && optionsError == null && selectedCompany != null,
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = primaryTeal)
                         ) {
@@ -373,7 +454,7 @@ fun RegisterScreen(
 
             // Footer
             Text(
-                text = "© 2026 ${companyName ?: "JANGEBY GROUP"}",
+                text = "© 2026 JANGEBY SYSTEM",
                 color = Color(0xFF94A3B8),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 24.dp)

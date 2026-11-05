@@ -130,7 +130,7 @@ class LocationService : Service() {
         }
 
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Jangeby System")
+            .setContentTitle("JANGEBY SYSTEM")
             .setContentText("Pastikan aplikasi ini selalu on agar anda selalu menerima informasi")
             .setSmallIcon(iconRes)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -34,7 +34,7 @@ fun MilestonePopupDialog(
     milestones: List<MilestoneItemData>,
     currentEmployeeId: Long = 0L,
     myMilestoneToday: MilestoneItemData? = null,
-    companyName: String = "Jangeby Group",
+    companyName: String = "Organisasi",
     onDismiss: () -> Unit,
     onNavigateToWishes: () -> Unit
 ) {

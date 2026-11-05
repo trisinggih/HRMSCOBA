@@ -22,6 +22,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
 import coil3.compose.AsyncImage
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -46,6 +47,7 @@ fun LoginScreen(
     }
 
     val primaryTeal = Color(0xFF007A87)
+    val uriHandler = LocalUriHandler.current
 
     Scaffold(
         containerColor = Color(0xFFF8FAFC)
@@ -81,7 +83,7 @@ fun LoginScreen(
                         )
                     } else {
                         Text(
-                            text = companyName ?: "JANGEBY",
+                            text = "JANGEBY SYSTEM",
                             color = Color.White,
                             fontSize = 32.sp,
                             fontWeight = FontWeight.ExtraBold,
@@ -90,7 +92,7 @@ fun LoginScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Sistem Informasi Karyawan",
+                        text = "Manajemen SDM dan Operasional",
                         color = Color.White.copy(alpha = 0.9f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Normal
@@ -240,9 +242,13 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            TextButton(onClick = { uriHandler.openUri("https://hrms.jangeby.com/support/") }) {
+                Text("Bantuan / Support", color = primaryTeal)
+            }
+
             // Footer
             Text(
-                text = "© 2026 ${companyName ?: "Jangeby"}",
+                text = "© 2026 JANGEBY SYSTEM",
                 color = Color(0xFF94A3B8),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 24.dp)

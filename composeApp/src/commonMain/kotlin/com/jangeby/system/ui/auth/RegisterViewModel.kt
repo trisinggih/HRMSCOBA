@@ -7,6 +7,7 @@ import com.jangeby.system.data.remote.*
 import com.jangeby.system.hardware.DeviceInfoProvider
 import io.ktor.client.call.body
 import io.ktor.client.request.post
+import io.ktor.client.request.get
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -32,6 +33,40 @@ sealed class VerifyOtpState {
 }
 
 class RegisterViewModel(private val appSettings: AppSettings) : ViewModel() {
+    private val _registrationOptions = MutableStateFlow(RegistrationOptions())
+    val registrationOptions: StateFlow<RegistrationOptions> = _registrationOptions
+    private val _optionsLoading = MutableStateFlow(false)
+    val optionsLoading: StateFlow<Boolean> = _optionsLoading
+    private val _optionsError = MutableStateFlow<String?>(null)
+    val optionsError: StateFlow<String?> = _optionsError
+
+    init {
+        loadRegistrationOptions()
+    }
+
+    fun loadRegistrationOptions() {
+        if (_optionsLoading.value) return
+        _optionsLoading.value = true
+        _optionsError.value = null
+        viewModelScope.launch {
+            try {
+                val response = ApiClient.create().get(ApiClient.BASE_URL + "employee-auth/registration-options")
+                val result: ApiResponse<RegistrationOptions> = response.body()
+                if (response.status.value in 200..299 && result.success && result.data != null) {
+                    _registrationOptions.value = result.data
+                    if (result.data.companies.isEmpty()) {
+                        _optionsError.value = "Belum ada perusahaan yang tersedia untuk pendaftaran."
+                    }
+                } else {
+                    _optionsError.value = "Gagal memuat perusahaan dan cabang. Silakan coba lagi."
+                }
+            } catch (e: Exception) {
+                _optionsError.value = "Tidak dapat memuat perusahaan dan cabang. Periksa koneksi Anda."
+            } finally {
+                _optionsLoading.value = false
+            }
+        }
+    }
 
     private val _registerState = MutableStateFlow<RegisterState>(RegisterState.Idle)
     val registerState: StateFlow<RegisterState> = _registerState
@@ -66,11 +101,22 @@ class RegisterViewModel(private val appSettings: AppSettings) : ViewModel() {
         email: String,
         phone: String,
         pass: String,
-        confirmPass: String
+        confirmPass: String,
+        companyId: Long?,
+        branchId: Long?
     ) {
         val trimmedName = name.trim()
         val trimmedEmail = email.trim().lowercase()
         val trimmedPhone = phone.trim()
+
+        if (companyId == null || _registrationOptions.value.companies.none { it.id == companyId }) {
+            _registerState.value = RegisterState.Error("Silakan pilih perusahaan")
+            return
+        }
+        if (branchId != null && _registrationOptions.value.branches.none { it.id == branchId && it.companyId == companyId }) {
+            _registerState.value = RegisterState.Error("Cabang tidak sesuai dengan perusahaan yang dipilih")
+            return
+        }
 
         if (trimmedName.isBlank()) {
             _registerState.value = RegisterState.Error("Nama lengkap wajib diisi")
@@ -109,7 +155,9 @@ class RegisterViewModel(private val appSettings: AppSettings) : ViewModel() {
                             email = trimmedEmail,
                             phone = if (trimmedPhone.isNotBlank()) trimmedPhone else null,
                             password = pass,
-                            passwordConfirmation = confirmPass
+                            passwordConfirmation = confirmPass,
+                            companyId = companyId,
+                            branchId = branchId
                         )
                     )
                 }

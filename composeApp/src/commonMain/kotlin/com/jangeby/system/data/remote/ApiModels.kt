@@ -84,7 +84,21 @@ data class RegisterRequest(
     val email: String,
     val phone: String? = null,
     val password: String,
-    @SerialName("password_confirmation") val passwordConfirmation: String
+    @SerialName("password_confirmation") val passwordConfirmation: String,
+    @SerialName("company_id") val companyId: Long? = null,
+    @SerialName("branch_id") val branchId: Long? = null
+)
+
+@Serializable
+data class RegistrationCompany(val id: Long, val name: String)
+
+@Serializable
+data class RegistrationBranch(val id: Long, @SerialName("company_id") val companyId: Long, val name: String)
+
+@Serializable
+data class RegistrationOptions(
+    val companies: List<RegistrationCompany> = emptyList(),
+    val branches: List<RegistrationBranch> = emptyList()
 )
 
 @Serializable

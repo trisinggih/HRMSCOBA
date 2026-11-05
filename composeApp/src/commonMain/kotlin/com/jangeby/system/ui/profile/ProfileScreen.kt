@@ -69,6 +69,7 @@ fun ProfileScreen(
     var showChangePasswordDialog by remember { mutableStateOf(false) }
     var showLogoutConfirmSheet by remember { mutableStateOf(false) }
     var showSignatureSheet by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     val currentSignatureUrl by viewModel.currentSignatureUrl.collectAsState()
     val isSignatureSaving by viewModel.isSignatureSaving.collectAsState()
@@ -89,6 +90,25 @@ fun ProfileScreen(
                 selectedPhotoBytes = it.readBytes()
             }
         }
+    }
+
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = { Text("JANGEBY SYSTEM") },
+            text = {
+                Text("Aplikasi manajemen SDM dan operasional untuk mengelola presensi, pengajuan, tugas, dan informasi penggajian sesuai akses akun.")
+            },
+            confirmButton = {
+                TextButton(onClick = { showAboutDialog = false }) { Text("Tutup") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAboutDialog = false
+                    uriHandler.openUri("https://hrms.jangeby.com/support/")
+                }) { Text("Bantuan") }
+            }
+        )
     }
 
     LaunchedEffect(errorMessage) {
@@ -654,9 +674,9 @@ fun ProfileScreen(
                         HorizontalDivider(color = Color(0xFFF1F5F9))
                         ProfileMenuRow(
                             icon = Icons.Default.Info,
-                            label = "Tentang Aplikasi HRMS",
+                            label = "Tentang JANGEBY SYSTEM",
                             color = Color(0xFF64748B),
-                            onClick = { }
+                            onClick = { showAboutDialog = true }
                         )
                         HorizontalDivider(color = Color(0xFFF1F5F9))
                         ProfileMenuRow(
@@ -698,7 +718,7 @@ fun ProfileScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("HRMS App v1.0.0 – Powered by Jangeby", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                    Text("JANGEBY SYSTEM", fontSize = 11.sp, color = Color(0xFF94A3B8))
                 }
             }
         }

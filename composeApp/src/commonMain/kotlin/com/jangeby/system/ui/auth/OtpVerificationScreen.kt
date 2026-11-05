@@ -331,7 +331,7 @@ fun OtpVerificationScreen(
 
             // Footer
             Text(
-                text = "© 2026 ${companyName ?: "JANGEBY GROUP"}",
+                text = "© 2026 JANGEBY SYSTEM",
                 color = Color(0xFF94A3B8),
                 fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 24.dp)

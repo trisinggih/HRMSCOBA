@@ -154,7 +154,7 @@ fun SplashScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = companyName.take(1).ifEmpty { "J" },
+                            text = "J",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Black,
                             color = Color.White
@@ -163,8 +163,8 @@ fun SplashScreen(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
-                            text = companyName,
-                            fontSize = 36.sp,
+                            text = "JANGEBY SYSTEM",
+                            fontSize = 28.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
                             letterSpacing = 2.sp
