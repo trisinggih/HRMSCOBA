@@ -515,6 +515,16 @@ data class ApprovalItem(
             }
 
             val permType = p?.get("type")?.jsonPrimitive?.contentOrNull
+            if (module?.lowercase()?.trim() in listOf("permission", "permit")) {
+                val permissionLabel = when (permType) {
+                    "personal" -> "Izin Pribadi"
+                    "business" -> "Izin Perjalanan Dinas"
+                    "out_of_office", "izin_keluar" -> "Izin Keluar"
+                    "early_leave" -> "Izin Pulang Awal"
+                    else -> permType ?: "Izin"
+                }
+                info.append("Jenis: $permissionLabel\n")
+            }
             val isExitPermit = permType in listOf("out_of_office", "izin_keluar")
             val startTime = p?.get("start_time")?.jsonPrimitive?.contentOrNull
                 ?: p?.get("requested_start_time")?.jsonPrimitive?.contentOrNull
@@ -531,7 +541,9 @@ data class ApprovalItem(
                 val dayText = if (!days.isNullOrEmpty()) " ($days Hari)" else ""
                 val sTime = startTime?.take(5)
                 val eTime = endTime?.take(5)
-                val timeStr = if (!isMultiDay && isExitPermit && !sTime.isNullOrEmpty() && !eTime.isNullOrEmpty()) {
+                val timeStr = if (permType == "early_leave" && !eTime.isNullOrEmpty()) {
+                    " (Jam akhir: $eTime)"
+                } else if (!isMultiDay && isExitPermit && !sTime.isNullOrEmpty() && !eTime.isNullOrEmpty()) {
                     " ($sTime - $eTime)"
                 } else ""
                 val dateText = if (isMultiDay && edFmt != null) {

@@ -90,7 +90,19 @@ class PermitViewModel : ViewModel() {
         val targetDate = runCatching { LocalDate.parse(startDate.take(10)) }.getOrNull()
         val isExitPermit = type.lowercase() in listOf("out_of_office", "izin_keluar")
 
-        if (isExitPermit) {
+        val isEarlyLeave = type == "early_leave"
+        if (isEarlyLeave) {
+            if (targetDate != today || finalEndDate.take(10) != today.toString()) {
+                _errorMessage.value = "Izin pulang awal hanya berlaku untuk hari ini"
+                _isSubmitting.value = false
+                return
+            }
+            if (endTime == null || !Regex("([01][0-9]|2[0-3]):[0-5][0-9]").matches(endTime)) {
+                _errorMessage.value = "Pilih jam akhir yang valid untuk izin pulang awal"
+                _isSubmitting.value = false
+                return
+            }
+        } else if (isExitPermit) {
             if (targetDate != null && targetDate != today) {
                 _errorMessage.value = "Pengajuan izin keluar hanya dapat diajukan untuk hari ini"
                 _isSubmitting.value = false
@@ -117,7 +129,7 @@ class PermitViewModel : ViewModel() {
                                 append("date", startDate)
                                 append("start_date", startDate)
                                 append("end_date", finalEndDate)
-                                if (!startTime.isNullOrBlank()) append("start_time", startTime)
+                                if (!isEarlyLeave && !startTime.isNullOrBlank()) append("start_time", startTime)
                                 if (!endTime.isNullOrBlank()) append("end_time", endTime)
                                 append("reason", reason)
                                 if (attachmentBytes != null && attachment != null) {
@@ -206,7 +218,9 @@ class PermitViewModel : ViewModel() {
             "${formatDateOnlyDMY(start)} s/d ${formatDateOnlyDMY(end)}"
         } else {
             val singleDate = formatDateOnlyDMY(start)
-            if (isExitPermit && (!item.startTime.isNullOrBlank() || !item.endTime.isNullOrBlank())) {
+            if (item.type == "early_leave") {
+                "$singleDate | Jam akhir: ${item.endTime?.take(5) ?: "-"}"
+            } else if (isExitPermit && (!item.startTime.isNullOrBlank() || !item.endTime.isNullOrBlank())) {
                 "$singleDate · ${item.startTime?.take(5) ?: "-"} - ${item.endTime?.take(5) ?: "-"}"
             } else {
                 singleDate

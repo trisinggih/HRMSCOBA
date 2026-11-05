@@ -785,8 +785,9 @@ fun IzinFormContent(
     val permissionTypes = remember {
         listOf(
             "Izin Pribadi" to "personal",
-            "Izin Dinas Luar Kota" to "business",
-            "Izin Keluar" to "out_of_office"
+            "Izin Perjalanan Dinas" to "business",
+            "Izin Keluar" to "out_of_office",
+            "Izin Pulang Awal" to "early_leave"
         )
     }
     var selectedTypePair by remember { mutableStateOf(permissionTypes.first()) }
@@ -804,13 +805,14 @@ fun IzinFormContent(
 
     val isExitPermit = selectedTypePair.second == "out_of_office"
     val isBusinessTrip = selectedTypePair.second == "business"
+    val isEarlyLeave = selectedTypePair.second == "early_leave"
 
     LaunchedEffect(selectedTypePair) {
-        if (selectedTypePair.second == "out_of_office") {
+        if (isExitPermit || isEarlyLeave) {
             startDate = todayStr
             endDate = todayStr
-            startTime = "08:00"
-            endTime = "17:00"
+            startTime = if (isEarlyLeave) "" else "08:00"
+            endTime = if (isEarlyLeave) "" else "17:00"
         } else {
             if (startDate < todayStr) {
                 startDate = todayStr
@@ -848,8 +850,9 @@ fun IzinFormContent(
                 )
                 Text(
                     text = when {
+                        isEarlyLeave -> "Izin pulang awal berlaku untuk hari ini. Pilih jam akhir / jam pulang yang diajukan."
                         isExitPermit -> "• Khusus Izin Keluar hanya dapat diajukan untuk hari ini.\n• Wajib menentukan jam keluar dan jam kembali."
-                        isBusinessTrip -> "• Izin Dinas Luar Kota dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal).\n• Memungkinkan presensi bebas lokasi setelah disetujui."
+                        isBusinessTrip -> "• Izin Perjalanan Dinas dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal).\n• Memungkinkan presensi bebas lokasi setelah disetujui."
                         else -> "• Izin Pribadi dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal)."
                     },
                     fontSize = 12.sp,
@@ -885,7 +888,7 @@ fun IzinFormContent(
                     onClick = {
                         selectedTypePair = pair
                         expandedType = false
-                        if (pair.second == "out_of_office") {
+                        if (pair.second in listOf("out_of_office", "early_leave")) {
                             startDate = todayStr
                             endDate = todayStr
                         } else {
@@ -904,7 +907,17 @@ fun IzinFormContent(
 
     Spacer(modifier = Modifier.height(12.dp))
 
-    if (isExitPermit) {
+    if (isEarlyLeave) {
+        OutlinedTextField(
+            value = DateTimeUtils.formatDateOnlyDMY(todayStr),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Tanggal Hari Ini") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        TimePickerField(value = endTime, onValueChange = { endTime = it }, label = "Jam Akhir / Jam Pulang")
+    } else if (isExitPermit) {
         // Tanggal Izin Keluar (1 hari - hari ini)
         DatePickerField(
             value = startDate,
@@ -1011,7 +1024,9 @@ fun IzinFormContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    val isDateValid = if (isExitPermit) {
+    val isDateValid = if (isEarlyLeave) {
+        endTime.isNotBlank()
+    } else if (isExitPermit) {
         startDate == todayStr && startTime.isNotBlank() && endTime.isNotBlank() && endTime > startTime
     } else {
         startDate.isNotBlank() && endDate.isNotBlank() && startDate >= todayStr && endDate >= startDate
@@ -1019,10 +1034,10 @@ fun IzinFormContent(
 
     Button(
         onClick = { 
-            val finalStart = startDate
-            val finalEnd = if (isExitPermit || endDate.isBlank()) startDate else endDate
-            val finalStartTime = if (isExitPermit) startTime else "08:00"
-            val finalEndTime = if (isExitPermit) endTime else "17:00"
+            val finalStart = if (isEarlyLeave) DateTimeUtils.nowInJakarta().date.toString() else startDate
+            val finalEnd = if (isEarlyLeave || isExitPermit || endDate.isBlank()) finalStart else endDate
+            val finalStartTime = if (isEarlyLeave) "" else if (isExitPermit) startTime else "08:00"
+            val finalEndTime = if (isEarlyLeave || isExitPermit) endTime else "17:00"
             onSubmit(selectedTypePair.second, finalStart, finalEnd, finalStartTime, finalEndTime, reason, attachment) 
         },
         modifier = Modifier.fillMaxWidth().height(48.dp),

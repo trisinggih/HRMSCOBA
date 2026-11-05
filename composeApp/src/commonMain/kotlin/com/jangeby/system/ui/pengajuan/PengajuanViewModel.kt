@@ -147,7 +147,8 @@ class PengajuanViewModel : ViewModel() {
                     val items = apiResponse.data?.data ?: emptyList()
                     _izinHistory.value = items.map {
                         val titleText = when (it.type) {
-                            "business" -> "Izin Dinas Luar Kota"
+                            "business" -> "Izin Perjalanan Dinas"
+                            "early_leave" -> "Izin Pulang Awal"
                             "out_of_office", "izin_keluar" -> "Izin Keluar"
                             "personal" -> "Izin Pribadi"
                             "family" -> "Urusan Keluarga"
@@ -159,7 +160,7 @@ class PengajuanViewModel : ViewModel() {
                         val finalEndDate = it.endDate ?: finalStartDate
                         val isMultiDay = !finalEndDate.isNullOrBlank() && !finalStartDate.isNullOrBlank() && finalEndDate.take(10) != finalStartDate.take(10)
                         val isExitPermit = it.type in listOf("out_of_office", "izin_keluar")
-                        val timeStr = if (!isMultiDay && isExitPermit && it.startTime != null && it.endTime != null) " · ${it.startTime.take(5)} - ${it.endTime.take(5)}" else ""
+                        val timeStr = if (it.type == "early_leave") " | Jam akhir: ${it.endTime?.take(5) ?: "-"}" else if (!isMultiDay && isExitPermit && it.startTime != null && it.endTime != null) " · ${it.startTime.take(5)} - ${it.endTime.take(5)}" else ""
                         val dateText = if (isMultiDay) {
                             "${com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(finalStartDate)} s/d ${com.jangeby.system.utils.DateTimeUtils.formatDateOnlyDMY(finalEndDate)}"
                         } else {
@@ -308,10 +309,20 @@ class PengajuanViewModel : ViewModel() {
         val today = DateTimeUtils.nowInJakarta().date
         val targetStart = runCatching { LocalDate.parse(startDate.take(10)) }.getOrNull()
         val isExitPermit = (type == "out_of_office" || type == "izin_keluar")
-        val finalEndDate = if (isExitPermit || toDate.isBlank()) startDate else toDate
+        val isEarlyLeave = type == "early_leave"
+        val finalEndDate = if (isEarlyLeave || isExitPermit || toDate.isBlank()) startDate else toDate
         val targetEnd = runCatching { LocalDate.parse(finalEndDate.take(10)) }.getOrNull()
 
-        if (isExitPermit) {
+        if (isEarlyLeave) {
+            if (targetStart != today || targetEnd != today) {
+                _state.value = PengajuanState.Error("Izin pulang awal hanya berlaku untuk hari ini")
+                return
+            }
+            if (!Regex("([01][0-9]|2[0-3]):[0-5][0-9]").matches(endTime)) {
+                _state.value = PengajuanState.Error("Pilih jam akhir yang valid untuk izin pulang awal")
+                return
+            }
+        } else if (isExitPermit) {
             if (targetStart != today) {
                 _state.value = PengajuanState.Error("Pengajuan izin keluar hanya dapat diajukan untuk hari ini")
                 return
@@ -335,7 +346,7 @@ class PengajuanViewModel : ViewModel() {
             }
         }
 
-        val sTime = if (startTime.isNotBlank()) startTime else "08:00"
+        val sTime = if (isEarlyLeave) "" else if (startTime.isNotBlank()) startTime else "08:00"
         val eTime = if (endTime.isNotBlank()) endTime else "17:00"
 
         _state.value = PengajuanState.Loading
@@ -351,7 +362,7 @@ class PengajuanViewModel : ViewModel() {
                             append("start_date", startDate)
                             append("end_date", finalEndDate)
                             append("to_date", finalEndDate)
-                            append("start_time", sTime)
+                            if (!isEarlyLeave) append("start_time", sTime)
                             append("end_time", eTime)
                             append("reason", reason)
                             if (fileBytes != null && attachment != null) {

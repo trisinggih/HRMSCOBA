@@ -282,8 +282,9 @@ fun PermitCard(
 ) {
     val typeTitle = when (item.type?.lowercase()) {
         "personal" -> "Izin Pribadi"
-        "business" -> "Izin Dinas Luar Kota"
-        "out_of_office", "izin_keluar" -> "Izin Keluar Kantor"
+        "business" -> "Izin Perjalanan Dinas"
+        "out_of_office", "izin_keluar" -> "Izin Keluar"
+        "early_leave" -> "Izin Pulang Awal"
         "family" -> "Urusan Keluarga"
         "urgent" -> "Mendesak / Urgent"
         else -> item.type?.replaceFirstChar { it.uppercase() } ?: "Izin"
@@ -409,7 +410,7 @@ fun PermitCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FormPermitBottomSheet(
     isSubmitting: Boolean,
@@ -419,8 +420,9 @@ fun FormPermitBottomSheet(
     var selectedTypeIndex by remember { mutableStateOf(0) }
     val typeOptions = listOf(
         "Izin Pribadi" to "personal",
-        "Izin Dinas Luar Kota" to "business",
-        "Izin Keluar" to "out_of_office"
+        "Izin Perjalanan Dinas" to "business",
+        "Izin Keluar" to "out_of_office",
+        "Izin Pulang Awal" to "early_leave"
     )
 
     val todayDate = DateTimeUtils.nowInJakarta().date
@@ -443,13 +445,14 @@ fun FormPermitBottomSheet(
     val selectedTypeCode = typeOptions[selectedTypeIndex].second
     val isExitPermit = selectedTypeCode == "out_of_office"
     val isBusinessTrip = selectedTypeCode == "business"
+    val isEarlyLeave = selectedTypeCode == "early_leave"
 
     LaunchedEffect(selectedTypeCode) {
-        if (isExitPermit) {
+        if (isExitPermit || isEarlyLeave) {
             startDate = todayStr
             endDate = todayStr
-            startTime = "08:00"
-            endTime = "17:00"
+            startTime = if (isEarlyLeave) "" else "08:00"
+            endTime = if (isEarlyLeave) "" else "17:00"
         } else {
             if (startDate < todayStr) {
                 startDate = todayStr
@@ -512,8 +515,9 @@ fun FormPermitBottomSheet(
                         )
                         Text(
                             text = when {
+                                isEarlyLeave -> "Izin pulang awal berlaku untuk hari ini. Pilih jam akhir / jam pulang yang diajukan."
                                 isExitPermit -> "• Khusus Izin Keluar hanya dapat diajukan untuk hari ini.\n• Wajib menentukan jam keluar dan jam kembali."
-                                isBusinessTrip -> "• Izin Dinas Luar Kota dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal)."
+                                isBusinessTrip -> "• Izin Perjalanan Dinas dapat diajukan mulai hari ini.\n• Dapat diajukan untuk satu hari atau beberapa hari (rentang tanggal)."
                                 else -> "• Izin Pribadi dapat diajukan mulai hari ini.\n• Dapat diajukan untuk rentang tanggal (tanggal mulai s/d tanggal akhir)."
                             },
                             fontSize = 12.sp,
@@ -525,7 +529,7 @@ fun FormPermitBottomSheet(
             }
 
             Text("Jenis Izin:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextSecondary)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 typeOptions.forEachIndexed { index, (label, _) ->
                     FilterChip(
                         selected = selectedTypeIndex == index,
@@ -535,7 +539,16 @@ fun FormPermitBottomSheet(
                 }
             }
 
-            if (isExitPermit) {
+            if (isEarlyLeave) {
+                OutlinedTextField(
+                    value = DateTimeUtils.formatDateOnlyDMY(todayStr),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tanggal Hari Ini") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TimePickerField(value = endTime, onValueChange = { endTime = it }, label = "Jam Akhir / Jam Pulang *")
+            } else if (isExitPermit) {
                 DatePickerField(
                     value = startDate,
                     onValueChange = { startDate = it; endDate = it },
@@ -624,7 +637,9 @@ fun FormPermitBottomSheet(
                 }
             }
 
-            val isValidInput = if (isExitPermit) {
+            val isValidInput = if (isEarlyLeave) {
+                endTime.isNotBlank() && reason.isNotBlank()
+            } else if (isExitPermit) {
                 startDate.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank() && reason.isNotBlank()
             } else {
                 startDate.isNotBlank() && endDate.isNotBlank() && reason.isNotBlank()
@@ -633,7 +648,8 @@ fun FormPermitBottomSheet(
             Button(
                 onClick = {
                     val finalEnd = if (endDate.isNotBlank()) endDate else startDate
-                    onSubmit(selectedTypeCode, startDate.trim(), finalEnd.trim(), startTime.trim(), endTime.trim(), reason.trim(), selectedFile)
+                    val finalStart = if (isEarlyLeave) DateTimeUtils.nowInJakarta().date.toString() else startDate.trim()
+                    onSubmit(selectedTypeCode, finalStart, if (isEarlyLeave) finalStart else finalEnd.trim(), if (isEarlyLeave) "" else startTime.trim(), endTime.trim(), reason.trim(), selectedFile)
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 enabled = !isSubmitting && isValidInput,
@@ -663,8 +679,9 @@ fun TrackingPermitBottomSheet(
 ) {
     val typeTitle = when (item.type?.lowercase()) {
         "personal" -> "Izin Pribadi"
-        "business" -> "Izin Dinas Luar Kota"
-        "out_of_office", "izin_keluar" -> "Izin Keluar Kantor"
+        "business" -> "Izin Perjalanan Dinas"
+        "out_of_office", "izin_keluar" -> "Izin Keluar"
+        "early_leave" -> "Izin Pulang Awal"
         "family" -> "Urusan Keluarga"
         "urgent" -> "Mendesak / Urgent"
         else -> item.type?.replaceFirstChar { it.uppercase() } ?: "Izin"
@@ -708,6 +725,9 @@ fun TrackingPermitBottomSheet(
             Text("Tanggal: $dateDisplay", fontSize = 13.sp, color = Color(0xFF757575))
             if (isExitPermit && (!item.startTime.isNullOrBlank() || !item.endTime.isNullOrBlank())) {
                 Text("Waktu: ${item.startTime?.take(5) ?: "-"} s/d ${item.endTime?.take(5) ?: "-"}", fontSize = 13.sp, color = Color(0xFF757575))
+            }
+            if (item.type == "early_leave") {
+                Text("Jam akhir: ${item.endTime?.take(5) ?: "-"}", fontSize = 13.sp, color = Color(0xFF757575))
             }
             Text("Alasan: ${item.reason ?: "-"}", fontSize = 13.sp, color = Color.Black)
 
