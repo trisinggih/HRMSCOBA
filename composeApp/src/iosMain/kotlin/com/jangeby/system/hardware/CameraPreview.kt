@@ -84,6 +84,7 @@ actual fun CameraPreviewWithFaceDetection(
         while (true) {
             delay(250)
             camera.expireFace()
+            camera.checkPreview()
         }
     }
 
@@ -93,13 +94,26 @@ actual fun CameraPreviewWithFaceDetection(
             properties = UIKitInteropProperties(isInteractive = false, isNativeAccessibilityEnabled = false),
             factory = {
                 object : UIView(frame = CGRectZero.readValue()) {
-                    private val preview = AVCaptureVideoPreviewLayer(session = camera.session).apply {
+                    private val preview = AVCaptureVideoPreviewLayer().apply {
                         videoGravity = AVLayerVideoGravityResizeAspectFill
                     }
 
                     init {
                         backgroundColor = UIColor.blackColor
                         layer.addSublayer(preview)
+                    }
+
+                    override fun didMoveToWindow() {
+                        super.didMoveToWindow()
+                        if (window != null) {
+                            // Bind the preview before configuring/starting capture on the serial queue.
+                            preview.session = camera.session
+                            setNeedsLayout()
+                            layoutIfNeeded()
+                            camera.attachPreview(preview)
+                        } else {
+                            camera.detachPreview()
+                        }
                     }
 
                     override fun layoutSubviews() {
@@ -128,6 +142,13 @@ actual fun CameraPreviewWithFaceDetection(
                 }
             }
         )
+        if (!camera.ready && camera.errorMessage == null) {
+            Text(
+                "Membuka kamera...",
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Center).padding(24.dp)
+            )
+        }
         camera.errorMessage?.let { message ->
             Column(
                 modifier = Modifier.align(Alignment.Center).padding(24.dp),
@@ -155,6 +176,8 @@ private class IosFaceCamera(
     private val sessionQueue = dispatch_queue_create("com.jangeby.system.camera", null)
     private val photoOutput = AVCapturePhotoOutput()
     private val faceOutput = AVCaptureMetadataOutput()
+    private var previewLayer: AVCaptureVideoPreviewLayer? = null
+    private var openingAt = 0.0
     private var configured = false
     @Volatile private var disposed = false
     @Volatile private var active = false
@@ -169,9 +192,32 @@ private class IosFaceCamera(
     var permissionDenied by mutableStateOf(false)
         private set
 
+    fun attachPreview(preview: AVCaptureVideoPreviewLayer) {
+        previewLayer = preview
+        resume()
+    }
+
+    fun detachPreview() {
+        previewLayer = null
+        pause()
+    }
+
+    fun checkPreview() {
+        if (disposed || !active || errorMessage != null || openingAt == 0.0) return
+        if (session.running && previewLayer?.readyForDisplay == true) {
+            ready = true
+            openingAt = 0.0
+        } else if (NSDate().timeIntervalSince1970 - openingAt > 10.0) {
+            pause()
+            showError("Kamera belum menampilkan gambar. Pastikan izin kamera aktif, lalu ketuk Coba lagi.")
+        }
+    }
+
     fun resume() {
-        if (disposed || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return
+        if (disposed || previewLayer == null || UIApplication.sharedApplication.applicationState != UIApplicationStateActive) return
+        if (active && (ready || openingAt != 0.0)) return
         active = true
+        openingAt = NSDate().timeIntervalSince1970
         when (AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)) {
             AVAuthorizationStatusAuthorized -> {
                 permissionDenied = false
@@ -181,13 +227,21 @@ private class IosFaceCamera(
                     if (!configured && !configure()) return@dispatch_async
                     if (!session.running) session.startRunning()
                     dispatch_async(dispatch_get_main_queue()) {
-                        if (!disposed && active) ready = session.running
+                        if (!disposed && active && !session.running) {
+                            showError("Sesi kamera gagal dimulai. Silakan ketuk Coba lagi.")
+                        }
                     }
                 }
             }
             AVAuthorizationStatusNotDetermined -> {
                 AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) {
-                    dispatch_async(dispatch_get_main_queue()) { if (!disposed) resume() }
+                    dispatch_async(dispatch_get_main_queue()) {
+                        if (!disposed) {
+                            active = false
+                            openingAt = 0.0
+                            resume()
+                        }
+                    }
                 }
             }
             else -> {
@@ -331,6 +385,8 @@ private class IosFaceCamera(
         dispatch_async(dispatch_get_main_queue()) {
             if (!disposed) {
                 errorMessage = message
+                ready = false
+                openingAt = 0.0
                 faceVisible = false
                 onFace(false)
                 if (capturing) finishPhoto(null)
@@ -350,6 +406,7 @@ private class IosFaceCamera(
 
     fun pause() {
         active = false
+        openingAt = 0.0
         ready = false
         faceVisible = false
         onFace(false)
