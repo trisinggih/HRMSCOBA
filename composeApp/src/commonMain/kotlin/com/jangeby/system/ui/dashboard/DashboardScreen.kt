@@ -83,7 +83,7 @@ fun DashboardScreen(
     var canViewLateness by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         try {
-            val response = ApiClient.create().get(ApiClient.BASE_URL + "employee/attendance/late-access")
+            val response = ApiClient.create().get(ApiClient.BASE_URL + "attendance/late-access")
             if (response.status.value in 200..299) {
                 val result: ApiResponse<com.jangeby.system.ui.attendance.LatenessAccess> = response.body()
                 canViewLateness = result.data?.canView == true

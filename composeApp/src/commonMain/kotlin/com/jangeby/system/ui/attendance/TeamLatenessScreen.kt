@@ -79,7 +79,7 @@ class TeamLatenessViewModel : ViewModel() {
         val keyword = search.trim()
         viewModelScope.launch {
             try {
-                val response = ApiClient.create().get(ApiClient.BASE_URL + "employee/attendance/late-team") {
+                val response = ApiClient.create().get(ApiClient.BASE_URL + "attendance/late-team") {
                     parameter("start_date", start); parameter("end_date", end)
                     parameter("search", keyword); parameter("page", page)
                 }
