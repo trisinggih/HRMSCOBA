@@ -43,6 +43,7 @@ val appModule = module {
     viewModel<PersonalViewModel> { PersonalViewModel() }
     viewModel<PermitViewModel> { PermitViewModel() }
     viewModel<PayslipViewModel> { PayslipViewModel() }
+    viewModel<com.jangeby.system.ui.attendance.TeamLatenessViewModel> { com.jangeby.system.ui.attendance.TeamLatenessViewModel() }
     viewModel<ProfileViewModel> { ProfileViewModel(get()) }
 }
 

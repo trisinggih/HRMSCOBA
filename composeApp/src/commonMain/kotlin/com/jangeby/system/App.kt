@@ -136,10 +136,14 @@ fun App() {
                     onNavigateToAsset = { navController.navigate(AssetRoute) },
                     onNavigateToCheckPoint = { navController.navigate(CheckPointRoute) },
                     onNavigateToPersonal = { navController.navigate(PersonalRoute) },
-                    onNavigateToProfile = { navController.navigate(ProfileRoute) }
+                    onNavigateToProfile = { navController.navigate(ProfileRoute) },
+                    onNavigateToLateness = { navController.navigate(TeamLatenessRoute) }
                 )
             }
 
+            composable<TeamLatenessRoute> {
+                com.jangeby.system.ui.attendance.TeamLatenessScreen(onNavigateBack = { navController.popBackStack() })
+            }
             composable<AttendanceRoute> {
                 AttendanceScreen(
                     onNavigateBack = { navController.popBackStack() },

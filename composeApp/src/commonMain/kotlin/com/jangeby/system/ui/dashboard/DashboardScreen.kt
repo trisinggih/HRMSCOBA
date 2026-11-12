@@ -62,7 +62,8 @@ fun DashboardScreen(
     onNavigateToAsset: () -> Unit,
     onNavigateToCheckPoint: () -> Unit,
     onNavigateToPersonal: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToLateness: () -> Unit = {}
 ) {
     val appSettings: AppSettings = koinInject()
     var userName by remember { mutableStateOf(appSettings.userName ?: "Karyawan") }
@@ -79,6 +80,16 @@ fun DashboardScreen(
         onPauseOrDispose { }
     }
 
+    var canViewLateness by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        try {
+            val response = ApiClient.create().get(ApiClient.BASE_URL + "employee/attendance/late-access")
+            if (response.status.value in 200..299) {
+                val result: ApiResponse<com.jangeby.system.ui.attendance.LatenessAccess> = response.body()
+                canViewLateness = result.data?.canView == true
+            }
+        } catch (e: Exception) { canViewLateness = false }
+    }
     var badges by remember { mutableStateOf<BadgeResponse?>(null) }
     var hasClockedOut by remember { mutableStateOf(false) }
     var isCurrentlyCheckedIn by remember { mutableStateOf(false) }
@@ -216,7 +227,8 @@ fun DashboardScreen(
     val primaryTeal = Color(0xFF007A87)
     val primaryVariant = Color(0xFF005662)
 
-    val menuItems = listOf(
+    val menuItems = listOfNotNull(
+        if (canViewLateness) MenuItem("Terlambat", Icons.Default.DateRange, 0, onNavigateToLateness) else null,
         MenuItem("Presensi", Icons.Default.DateRange, 0, onNavigateToAttendance),
         MenuItem("Pengajuan", Icons.Default.Send, badges?.pengajuanCount ?: 0, onNavigateToPengajuan),
         MenuItem("Approval", Icons.Default.CheckCircle, badges?.approvalCount ?: 0, onNavigateToApproval),

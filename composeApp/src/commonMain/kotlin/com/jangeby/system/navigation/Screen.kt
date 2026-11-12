@@ -70,3 +70,6 @@ data class MapAttendanceRoute(val action: String)
 
 @Serializable
 object CheckPointRoute
+
+@Serializable
+object TeamLatenessRoute
