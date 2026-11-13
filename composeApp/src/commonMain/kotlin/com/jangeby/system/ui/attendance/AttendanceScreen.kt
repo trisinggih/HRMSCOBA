@@ -52,6 +52,13 @@ fun AttendanceScreen(
     viewModel: AttendanceViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val session by viewModel.session.collectAsState()
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(30000)
+            viewModel.loadShiftCalendar()
+        }
+    }
     val calendarItems by viewModel.calendarItems.collectAsState()
     val todayItem by viewModel.todayItem.collectAsState()
     val todayDateStr by viewModel.todayDateStr.collectAsState()
@@ -141,6 +148,7 @@ fun AttendanceScreen(
                 }
                 TodayAttendanceHeader(
                     todayItem = activeToday,
+                    session = session,
                     todayStr = todayDateStr,
                     isLoading = isLoadingData || state is AttendanceState.Loading,
                     onClockIn = { onNavigateToMap("clock_in") },
@@ -364,6 +372,7 @@ fun TodayAttendanceHeader(
     onOvertimeClockOut: () -> Unit,
     onApplyOvertime: (() -> Unit)? = null,
     onEditLateReason: (() -> Unit)? = null,
+    session: com.jangeby.system.data.remote.AttendanceSession? = null,
     hasUnclosedPrevious: Boolean = false,
     onSwitchToToday: (() -> Unit)? = null,
     onSwitchToUnclosed: (() -> Unit)? = null
@@ -398,7 +407,7 @@ fun TodayAttendanceHeader(
     val clockInStr = DateTimeUtils.formatTimeOnly(att?.clockIn)
     val clockOutStr = DateTimeUtils.formatTimeOnly(att?.clockOut)
 
-    val hasApprovedOvertime = todayItem?.hasApprovedOvertime == true
+    val hasApprovedOvertime = todayItem?.hasApprovedOvertime == true && session?.canStartOvertime == true
     val isOvertimeIn = att != null && !att.overtimeIn.isNullOrBlank()
     val isOvertimeOut = att != null && !att.overtimeOut.isNullOrBlank()
 
@@ -602,6 +611,7 @@ fun TodayAttendanceHeader(
                     val isOffDay = todayItem?.shift == null
                     val btnTitle = if (isOffDay) "CLOCK IN (MASUK LIBUR)" else "CLOCK IN HARI INI"
                     Button(
+                        enabled = session?.canClockIn == true,
                         onClick = onClockIn,
                         modifier = Modifier.fillMaxWidth().height(46.dp),
                         shape = RoundedCornerShape(12.dp),
@@ -610,6 +620,9 @@ fun TodayAttendanceHeader(
                         Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(btnTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                    if (session?.canClockIn != true) {
+                        Text("Clock in dibuka 1 jam sebelum shift (${DateTimeUtils.formatTimeOnly(session?.opensAt)} WIB)", color = Color.White, fontSize = 12.sp)
                     }
                     if (hasUnclosedPrevious && onSwitchToUnclosed != null) {
                         Spacer(modifier = Modifier.height(4.dp))

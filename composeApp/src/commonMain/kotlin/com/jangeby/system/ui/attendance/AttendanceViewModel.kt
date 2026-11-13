@@ -13,6 +13,7 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
@@ -66,6 +67,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
 
     private val _calendarItems = MutableStateFlow<List<CalendarItem>>(emptyList())
     val calendarItems: StateFlow<List<CalendarItem>> = _calendarItems
+
+    private val _session = MutableStateFlow<com.jangeby.system.data.remote.AttendanceSession?>(null)
+    val session = _session.asStateFlow()
 
     private val _todayItem = MutableStateFlow<CalendarItem?>(null)
     val todayItem: StateFlow<CalendarItem?> = _todayItem
@@ -274,57 +278,24 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _calendarItems.value = items
 
                     _todayDateStr.value = todayStr
-                    val foundToday = items.find { it.date == todayStr } ?: items.firstOrNull()
-
-                    // Deteksi sesi sebelumnya yang belum clock-out (baik shift normal maupun lintas hari):
-                    // Selama hari ini belum clock-in, jangan sembunyikan tombol Clock Out
-                    val unclosedPreviousItem = items.filter { item ->
-                        item.attendance?.clockIn != null &&
-                        item.attendance.clockOut.isNullOrBlank() &&
-                        (item.date ?: "") < todayStr
-                    }.maxByOrNull { it.date ?: "" }
-
-                    var activeItem = if (foundToday?.attendance?.clockIn != null) {
-                        foundToday
-                    } else if (unclosedPreviousItem != null) {
-                        unclosedPreviousItem
-                    } else {
-                        foundToday
-                    }
-
-                    // Fallback keamanan jika sesi unclosed sebelumnya adalah pergantian bulan (misal dari akhir bulan lalu ke tgl 1 bulan ini)
-                    if (activeItem?.attendance?.clockIn == null) {
-                        try {
-                            val histRes = client.get(ApiClient.BASE_URL + "attendance/history?per_page=5")
-                            if (histRes.status.value in 200..299) {
-                                val histData: ApiResponse<PaginatedResponse<AttendanceItem>> = histRes.body()
-                                val latestUnclosed = histData.data?.data?.firstOrNull {
-                                    !it.clockInAt.isNullOrBlank() && it.clockOutAt.isNullOrBlank()
-                                }
-                                if (latestUnclosed != null && (latestUnclosed.date ?: "") < todayStr) {
-                                    val isCross = latestUnclosed.shiftStart != null && latestUnclosed.shiftEnd != null && latestUnclosed.shiftStart > latestUnclosed.shiftEnd
-                                    activeItem = CalendarItem(
-                                        date = latestUnclosed.date,
-                                        shift = if (latestUnclosed.shiftId != null) ShiftItem(
-                                            id = latestUnclosed.shiftId,
-                                            name = latestUnclosed.shiftName,
-                                            startTime = latestUnclosed.shiftStart,
-                                            endTime = latestUnclosed.shiftEnd,
-                                            crossMidnight = isCross
-                                        ) else null,
-                                        attendance = AttendanceDetail(
-                                            id = latestUnclosed.id,
-                                            clockIn = latestUnclosed.clockInAt,
-                                            clockOut = null,
-                                            status = latestUnclosed.status,
-                                            notes = latestUnclosed.notes
-                                        )
-                                    )
-                                }
+                    val sessionResponse = client.get(ApiClient.BASE_URL + "attendance/session-state")
+                    if (sessionResponse.status.value !in 200..299) throw IllegalStateException("Gagal memuat status sesi presensi")
+                    val sessionData: ApiResponse<com.jangeby.system.data.remote.AttendanceSession> = sessionResponse.body()
+                    _session.value = sessionData.data
+                    val activeDate = sessionData.data?.activeDate ?: todayStr
+                    var activeItem = items.find { it.date == activeDate }
+                    if (activeItem == null && sessionData.data?.regularId != null) {
+                        val histRes = client.get(ApiClient.BASE_URL + "attendance/history?per_page=5")
+                        if (histRes.status.value in 200..299) {
+                            val histData: ApiResponse<PaginatedResponse<AttendanceItem>> = histRes.body()
+                            val active = histData.data?.data?.firstOrNull { it.id == sessionData.data?.regularId }
+                            if (active != null) {
+                                activeItem = CalendarItem(date = active.date,
+                                    shift = active.shiftId?.let { ShiftItem(id = it, name = active.shiftName, startTime = active.shiftStart, endTime = active.shiftEnd) },
+                                    attendance = AttendanceDetail(id = active.id, clockIn = active.clockInAt, clockOut = active.clockOutAt, status = active.status, notes = active.notes))
                             }
-                        } catch (_: Exception) {}
+                        }
                     }
-
                     _todayItem.value = activeItem
 
                     if (activeItem?.attendance?.clockIn != null && activeItem.attendance.clockOut.isNullOrBlank()) {
@@ -473,7 +444,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
         val unclosed = _calendarItems.value.filter {
             it.attendance?.clockIn != null && it.attendance.clockOut.isNullOrBlank() && (it.date ?: "") < todayStr
         }.maxByOrNull { it.date ?: "" }
-        if (unclosed != null) {
+        if (unclosed != null && unclosed.date == _session.value?.activeDate) {
             _todayItem.value = unclosed
         }
     }

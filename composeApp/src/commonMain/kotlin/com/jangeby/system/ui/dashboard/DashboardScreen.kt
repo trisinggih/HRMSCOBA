@@ -94,6 +94,31 @@ fun DashboardScreen(
     var hasClockedOut by remember { mutableStateOf(false) }
     var isCurrentlyCheckedIn by remember { mutableStateOf(false) }
     var overtimeToday by remember { mutableStateOf<OvertimeRequestItem?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val client = ApiClient.create()
+                val response = client.get(ApiClient.BASE_URL + "attendance/session-state")
+                if (response.status.value in 200..299) {
+                    val result: ApiResponse<AttendanceSession> = response.body()
+                    isCurrentlyCheckedIn = result.data?.canClockOut == true
+                    hasClockedOut = result.data?.canStartOvertime == true
+                    if (isCurrentlyCheckedIn) com.jangeby.system.hardware.LocationTracker.start()
+                    else com.jangeby.system.hardware.LocationTracker.stop()
+                } else {
+                    isCurrentlyCheckedIn = false
+                    hasClockedOut = false
+                }
+                val otResponse = client.get(ApiClient.BASE_URL + "overtime/today")
+                if (otResponse.status.value in 200..299) {
+                    val result: ApiResponse<OvertimeRequestItem?> = otResponse.body()
+                    overtimeToday = result.data
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { hasClockedOut = false }
+            kotlinx.coroutines.delay(30000)
+        }
+    }
     var recentNotifications by remember { mutableStateOf<List<NotificationItem>>(emptyList()) }
     var showMilestonePopup by remember { mutableStateOf(false) }
     var todayMilestonesForPopup by remember { mutableStateOf<List<MilestoneItemData>>(emptyList()) }
@@ -145,37 +170,6 @@ fun DashboardScreen(
                 if (notifRes.status.value in 200..299) {
                     val notifData: ApiResponse<PaginatedResponse<NotificationItem>> = notifRes.body()
                     recentNotifications = notifData.data?.data ?: emptyList()
-                }
-            } catch (e: Exception) {
-                // ignore
-            }
-
-            // Check today's attendance state to resume live location tracking if checked in
-            try {
-                val attRes = client.get(ApiClient.BASE_URL + "attendance/history")
-                if (attRes.status.value in 200..299) {
-                    val attData: ApiResponse<PaginatedResponse<AttendanceItem>> = attRes.body()
-                    val historyList = attData.data?.data ?: emptyList()
-                    val todayStr = DateTimeUtils.todayDateString()
-                    
-                    val todayAtt = historyList.firstOrNull { it.date?.take(10) == todayStr }
-                    val unclosedPrevious = historyList.firstOrNull { 
-                        it.clockOutAt.isNullOrEmpty() && !it.clockInAt.isNullOrEmpty() 
-                    }
-                    val currentAtt = if (todayAtt?.clockInAt != null) todayAtt else (unclosedPrevious ?: todayAtt)
-                    
-                    val isCurrentSession = currentAtt != null && !currentAtt.clockInAt.isNullOrEmpty() && currentAtt.clockOutAt.isNullOrEmpty()
-                    
-                    if (isCurrentSession) {
-                        isCurrentlyCheckedIn = true
-                        com.jangeby.system.hardware.LocationTracker.start()
-                    } else {
-                        isCurrentlyCheckedIn = false
-                        com.jangeby.system.hardware.LocationTracker.stop()
-                    }
-
-                    // Logika hasClockedOut: sudah clock in dan clock out pada hari ini
-                    hasClockedOut = (todayAtt != null && !todayAtt.clockInAt.isNullOrEmpty() && !todayAtt.clockOutAt.isNullOrEmpty())
                 }
             } catch (e: Exception) {
                 // ignore
@@ -597,7 +591,7 @@ fun DashboardScreen(
                     color = Color(0xFF0F172A),
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
                 )
-                if (overtimeToday != null && !isCurrentlyCheckedIn) {
+                if (overtimeToday?.status in listOf("approved", "in_progress") && hasClockedOut && !isCurrentlyCheckedIn) {
                     // Tampilkan Tombol Lembur (jika ada pengajuan lembur yang di-approve atau in-progress dan tidak sedang shift reguler)
                     val isOtInProgress = overtimeToday?.status == "in_progress"
                     if (isOtInProgress) {
