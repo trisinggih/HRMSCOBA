@@ -48,7 +48,7 @@ fun PayslipScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadPayslips() }) {
+                    IconButton(onClick = { selectedPayslip?.let { viewModel.selectPayslip(it) } ?: viewModel.loadPayslips() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
                     }
                 }
@@ -59,6 +59,7 @@ fun PayslipScreen(
             // Detail view
             PayslipDetailView(
                 payslip = selectedPayslip!!,
+                modifier = Modifier.padding(padding),
                 viewModel = viewModel,
                 onClose = { viewModel.clearSelectedPayslip() }
             )
@@ -243,265 +244,164 @@ fun PayslipScreen(
 fun PayslipDetailView(
     payslip: PayslipItem,
     viewModel: PayslipViewModel,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    // Separate earnings vs deductions from details
-    val rawDetails = payslip.details ?: emptyList()
-    val earnings = rawDetails.filter {
-        val t = it.type?.lowercase() ?: ""
-        t == "earning" || t == "allowance" || t == "bonus" || t == "overtime" || (it.amount ?: 0.0) > 0 && !t.contains("deduct") && !t.contains("potong") && !t.contains("tax") && !t.contains("bpjs")
-    }
-    val deductions = rawDetails.filter {
-        val t = it.type?.lowercase() ?: ""
-        t == "deduction" || t == "tax" || t == "bpjs" || (it.amount ?: 0.0) < 0 || t.contains("potong") || t.contains("kasbon")
-    }
-
+    val loading by viewModel.detailLoading.collectAsState()
+    val error by viewModel.detailError.collectAsState()
+    var showDaily by remember(payslip.id) { mutableStateOf(false) }
+    val details = payslip.details.orEmpty()
+    val earnings = details.filterNot(PayslipPresentation::isDeduction)
+    val deductions = details.filter(PayslipPresentation::isDeduction).filter { kotlin.math.abs(it.amount ?: 0.0) > 0 }
+    val attendance = PayslipPresentation.attendance(payslip)
+    val employee = payslip.employee
+    val company = payslip.company
+    val overtime = PayslipPresentation.overtimeHours(payslip)
+    val daily = payslip.attendanceLogs.orEmpty()
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Background),
-        contentPadding = PaddingValues(bottom = 32.dp)
+        modifier = modifier.fillMaxSize().background(Background),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            // Header detail
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Brush.horizontalGradient(listOf(Primary, PrimaryVariant)))
-                    .padding(20.dp)
-            ) {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextButton(onClick = onClose, contentPadding = PaddingValues(0.dp)) {
-                            Icon(Icons.Default.KeyboardArrowLeft, "Kembali", tint = Color.White)
-                            Text("Kembali", color = Color.White, fontSize = 13.sp)
-                        }
-                        StatusChip(payslip.status ?: "approved")
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = viewModel.formatPeriodTitle(payslip),
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (!payslip.period?.startDate.isNullOrBlank() && !payslip.period?.endDate.isNullOrBlank()) {
-                        Text(
-                            text = "${payslip.period?.startDate} - ${payslip.period?.endDate}",
-                            color = Color.White.copy(0.85f),
-                            fontSize = 12.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Take Home Pay (Gaji Bersih)", color = Color.White.copy(0.75f), fontSize = 12.sp)
-                    Text(
-                        text = viewModel.formatRupiah(payslip.netSalary),
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+            Card(colors = CardDefaults.cardColors(containerColor = Primary), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(company.text("name") ?: "Slip Gaji", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    company.text("branch_name")?.let { Text(it, color = Color.White.copy(alpha = 0.85f)) }
+                    Text(viewModel.formatPeriodTitle(payslip), color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("${payslip.period?.startDate ?: "-"} s/d ${payslip.period?.endDate ?: "-"}", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                    payslip.period?.paymentDate?.let { Text("Tanggal pembayaran: $it", color = Color.White, fontSize = 12.sp) }
+                    Text("Gaji Bersih Diterima", color = Color.White, fontSize = 12.sp)
+                    Text(viewModel.formatRupiah(payslip.netSalary), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    StatusChip(payslip.status ?: "-")
                 }
             }
         }
-
-        // Prorate banner if employee joined after day 1
-        if (payslip.prorate?.isProrated == true) {
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
-                    border = BorderStroke(1.dp, Color(0xFFF59E0B))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = Color(0xFFD97706),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Informasi Prorate Masuk Kerja",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF92400E),
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Bergabung tgl ${payslip.prorate.joinDate ?: "-"} (di atas tanggal 1). Gaji & tunjangan diprorate ${payslip.prorate.workingDays ?: 0}/${payslip.prorate.monthWorkingDays ?: 0} hari kerja.",
-                                color = Color(0xFFB45309),
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
+        if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        if (error != null) item {
+            Text(error.orEmpty(), color = Danger)
+            TextButton(onClick = { viewModel.selectPayslip(payslip) }) { Text("Muat ulang detail") }
+        }
+        if (employee != null) item {
+            PayslipSection("Informasi Karyawan") {
+                PayslipValue("Nama", employee.text("name") ?: "-")
+                PayslipValue("NIP", employee.text("employee_code") ?: "-")
+                PayslipValue("Cabang", company.obj("branch").text("name") ?: employee.obj("branch").text("name") ?: "-")
+                PayslipValue("Departemen", employee.obj("department").text("name") ?: "-")
+                PayslipValue("Jabatan", employee.obj("position").text("name") ?: "-")
+                PayslipValue("Status", when (val status = employee.text("employment_status")) {
+                    "permanent" -> "Tetap"; "contract" -> "Kontrak"; "probation" -> "Percobaan"; "internship", "magang" -> "Magang"; else -> status ?: "-"
+                })
+                PayslipValue("Bergabung", employee.text("join_date") ?: "-")
+            }
+        }
+        if (payslip.prorate?.isProrated == true) item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7))) {
+                Text("Penyesuaian masa kerja sejak ${payslip.prorate.joinDate ?: "tanggal bergabung"}.", modifier = Modifier.padding(14.dp), color = Color(0xFF92400E))
+            }
+        }
+        if (attendance != null) item {
+            PayslipSection("Kehadiran Periode") {
+                PayslipValue("Total hari periode", "${PayslipPresentation.count(attendance.totalPeriodDays)} hari")
+                PayslipValue("Hari kerja", "${PayslipPresentation.count(attendance.workDays)} hari")
+                val counts = listOf(
+                    "Masuk" to attendance.hadir,
+                    "Libur" to attendance.libur,
+                    "Cuti" to PayslipPresentation.leaveDays(attendance),
+                    "Izin" to attendance.permit,
+                    "Sakit" to attendance.sick,
+                    "Alpa" to attendance.alpha
+                )
+                counts.chunked(3).forEach { row ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        row.forEach { (label, count) ->
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(PayslipPresentation.count(count), fontWeight = FontWeight.Bold, color = if (label == "Alpa") Danger else Primary, fontSize = 20.sp)
+                                Text(label, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
+                if ((attendance.holiday ?: 0.0) > 0) Text("Masuk termasuk ${PayslipPresentation.count(attendance.holiday)} hari libur perusahaan.", fontSize = 12.sp, color = Color.Gray)
+                val lateMinutes = attendance.lateMinutes ?: payslip.breakdown.obj("daily_rules").number("late_minutes")
+                lateMinutes?.let { PayslipValue("Durasi keterlambatan", "${PayslipPresentation.count(it)} menit") }
+                overtime?.let { PayslipValue("Jumlah lembur", "${PayslipPresentation.count(it)} jam") }
             }
         }
-
-        // Attendance summary card if available
-        if (payslip.attendance != null) {
-            val att = payslip.attendance
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(top = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Ringkasan Kehadiran",
-                            fontWeight = FontWeight.Bold,
-                            color = Primary,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround
-                        ) {
-                            AttendanceStatItem("Hadir", "${att.hadir ?: 0}", Color(0xFF16A34A))
-                            AttendanceStatItem("Cuti/Izin", "${att.cuti ?: 0}", Color(0xFF0284C7))
-                            AttendanceStatItem("Libur", "${att.libur ?: 0}", Color(0xFF6B7280))
-                            AttendanceStatItem("Alpha", "${att.alpha ?: 0}", Color(0xFFDC2626))
-                        }
-                    }
+        if (!payslip.deductions.isNullOrEmpty()) item {
+            PayslipSection("Informasi Potongan Lain-lain") {
+                payslip.deductions.forEach { deduction ->
+                    PayslipValue(deduction.text("title") ?: "Potongan lain-lain", viewModel.formatRupiah(deduction.number("amount")))
+                    deduction.text("deduction_date")?.let { Text("Tanggal: ${it.take(10)}", fontSize = 12.sp, color = Color.Gray) }
                 }
             }
         }
-
-        // Pendapatan (Earnings)
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 12.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Pendapatan", fontWeight = FontWeight.Bold, color = Primary, fontSize = 15.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (earnings.isNotEmpty()) {
-                        earnings.forEach { d ->
-                            InfoRow(d.label ?: "Komponen", viewModel.formatRupiah(d.amount ?: 0.0))
-                        }
-                    } else {
-                        // Fallback fields from main run
-                        val gross = payslip.grossSalary ?: 0.0
-                        val allowance = payslip.totalAllowance ?: 0.0
-                        val overtime = payslip.totalOvertime ?: 0.0
-                        val basicEstimated = (gross - allowance - overtime).coerceAtLeast(0.0)
-                        InfoRow("Gaji Pokok", viewModel.formatRupiah(basicEstimated))
-                        if (allowance > 0) InfoRow("Total Tunjangan", viewModel.formatRupiah(allowance))
-                        if (overtime > 0) InfoRow("Uang Lembur", viewModel.formatRupiah(overtime))
+            PayslipSection("Penerimaan") {
+                if (earnings.isEmpty()) Text("Rincian komponen belum tersedia.", color = Color.Gray)
+                earnings.forEach { component ->
+                    PayslipValue(component.label ?: "Pendapatan", viewModel.formatRupiah(component.amount))
+                    if (component.label.orEmpty().contains("lembur", true) || component.label.orEmpty().contains("overtime", true)) {
+                        overtime?.let { Text("Durasi: ${PayslipPresentation.count(it)} jam", fontSize = 12.sp, color = Color.Gray) }
                     }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFE5E7EB))
-                    InfoRow("Total Pendapatan (Bruto)", viewModel.formatRupiah(payslip.grossSalary))
                 }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                PayslipValue("Total Penerimaan", viewModel.formatRupiah(payslip.grossSalary), true)
             }
         }
-
-        // Potongan (Deductions)
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 12.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Potongan", fontWeight = FontWeight.Bold, color = Danger, fontSize = 15.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = Color(0xFFE5E7EB))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (deductions.isNotEmpty()) {
-                        deductions.forEach { d ->
-                            val amt = kotlin.math.abs(d.amount ?: 0.0)
-                            InfoRow(d.label ?: "Potongan", "- ${viewModel.formatRupiah(amt)}")
-                        }
-                    } else {
-                        val bpjs = payslip.totalBpjs ?: 0.0
-                        val tax = payslip.totalTax ?: 0.0
-                        val other = ((payslip.totalDeduction ?: 0.0) - bpjs - tax).coerceAtLeast(0.0)
-                        if (bpjs > 0) InfoRow("BPJS", "- ${viewModel.formatRupiah(bpjs)}")
-                        if (tax > 0) InfoRow("PPh 21", "- ${viewModel.formatRupiah(tax)}")
-                        if (other > 0) InfoRow("Potongan Lainnya", "- ${viewModel.formatRupiah(other)}")
-                        if (bpjs == 0.0 && tax == 0.0 && other == 0.0) {
-                            InfoRow("Tidak ada potongan", "Rp 0")
-                        }
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color(0xFFE5E7EB))
-                    InfoRow("Total Potongan", "- ${viewModel.formatRupiah(payslip.totalDeduction)}")
+            PayslipSection("Potongan") {
+                deductions.forEach { component ->
+                    PayslipValue(component.label ?: "Potongan", viewModel.formatRupiah(kotlin.math.abs(component.amount ?: 0.0)))
                 }
+                if (deductions.isEmpty()) {
+                    if ((payslip.totalDeduction ?: 0.0) == 0.0) Text("Tidak ada potongan", color = Color.Gray)
+                    else Text("Rincian komponen belum tersedia.", color = Color.Gray)
+                }
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                PayslipValue("Total Potongan", viewModel.formatRupiah(payslip.totalDeduction), true)
             }
         }
-
-        // Gaji Bersih Banner
         item {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Primary),
-                elevation = CardDefaults.cardElevation(2.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Take Home Pay", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Text("Gaji Bersih Diterima", color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp)
-                    }
-                    Text(
-                        text = viewModel.formatRupiah(payslip.netSalary),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
-                    )
-                }
+            PayslipSection("Ringkasan Gaji") {
+                PayslipValue("Total Penerimaan", viewModel.formatRupiah(payslip.grossSalary))
+                PayslipValue("Total Potongan", viewModel.formatRupiah(payslip.totalDeduction))
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                PayslipValue("Gaji Bersih Diterima", viewModel.formatRupiah(payslip.netSalary), true)
             }
+        }
+        if (daily.isNotEmpty()) item {
+            OutlinedButton(onClick = { showDaily = !showDaily }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (showDaily) "Sembunyikan Rincian Absensi" else "Rincian Absensi (${daily.size} hari)")
+            }
+        }
+        if (showDaily) items(daily, key = { "attendance-${it.text("date")}" }) { day ->
+            PayslipSection("${day.text("formatted_date") ?: day.text("date")} ? ${PayslipPresentation.status(day.text("status"))}") {
+                PayslipValue("Shift", day.text("shift") ?: "-")
+                PayslipValue("Masuk", day.text("clock_in") ?: "-")
+                PayslipValue("Pulang", day.text("clock_out") ?: "-")
+                if ((day.number("late_minutes") ?: 0.0) > 0) PayslipValue("Terlambat", "${PayslipPresentation.count(day.number("late_minutes"))} menit")
+                if ((day.number("overtime_minutes") ?: 0.0) > 0) PayslipValue("Lembur", "${PayslipPresentation.count(day.number("overtime_minutes")?.div(60))} jam")
+            }
+        }
+        item { TextButton(onClick = onClose, modifier = Modifier.fillMaxWidth()) { Text("Kembali ke Riwayat Slip") } }
+    }
+}
+
+@Composable
+private fun PayslipSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, color = Primary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            content()
         }
     }
 }
 
 @Composable
-fun AttendanceStatItem(label: String, value: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = color)
-        Text(text = label, fontSize = 11.sp, color = Color(0xFF6B7280))
+private fun PayslipValue(label: String, value: String, bold: Boolean = false) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+        Text(label, modifier = Modifier.weight(1f), fontSize = 13.sp, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        Text(value, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }

@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 
 class PayslipViewModel : ViewModel() {
@@ -53,11 +55,37 @@ class PayslipViewModel : ViewModel() {
         }
     }
 
+    private var detailJob: Job? = null
+    private val _detailLoading = MutableStateFlow(false)
+    val detailLoading = _detailLoading.asStateFlow()
+    private val _detailError = MutableStateFlow<String?>(null)
+    val detailError = _detailError.asStateFlow()
+
     fun selectPayslip(item: PayslipItem) {
+        detailJob?.cancel()
         _selectedPayslip.value = item
+        _detailError.value = null
+        _detailLoading.value = true
+        detailJob = viewModelScope.launch {
+            try {
+                val response = ApiClient.create().get("${ApiClient.BASE_URL}my/payslips/${item.id}")
+                val result: ApiResponse<PayslipItem> = response.body()
+                if (response.status.value in 200..299 && result.data != null) {
+                    if (_selectedPayslip.value?.id == item.id) {
+                        _selectedPayslip.value = result.data
+                        _payslips.value = _payslips.value.map { if (it.id == item.id) result.data else it }
+                    }
+                } else _detailError.value = result.message ?: "Gagal memuat detail slip gaji."
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { _detailError.value = "Gagal memuat detail. Periksa koneksi dan coba lagi." }
+            finally { _detailLoading.value = false }
+        }
     }
 
     fun clearSelectedPayslip() {
+        detailJob?.cancel()
+        _detailLoading.value = false
+        _detailError.value = null
         _selectedPayslip.value = null
     }
 

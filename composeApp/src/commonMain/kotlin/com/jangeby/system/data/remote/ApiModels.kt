@@ -1213,10 +1213,16 @@ data class PayslipItem(
     @SerialName("total_bpjs") val totalBpjs: Double? = null,
     @SerialName("net_salary") val netSalary: Double? = null,
     val status: String? = null,
+    val employee: JsonObject? = null,
+    val company: JsonObject? = null,
+    val breakdown: JsonObject? = null,
+    @SerialName("attendance_logs") val attendanceLogs: List<JsonObject>? = null,
+    val deductions: List<JsonObject>? = null,
     val attendance: PayslipAttendance? = null,
     val period: PayslipPeriod? = null,
     val details: List<PayslipDetailItem>? = null,
     val prorate: PayslipProrate? = null,
+    @SerialName("absence_deduction") val absenceDeduction: PayslipAbsenceDeduction? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
 )
@@ -1225,11 +1231,23 @@ data class PayslipItem(
 data class PayslipProrate(
     @SerialName("is_prorated") val isProrated: Boolean? = false,
     @SerialName("join_date") val joinDate: String? = null,
-    @SerialName("working_days") val workingDays: Int? = null,
-    @SerialName("month_working_days") val monthWorkingDays: Int? = null,
+    @SerialName("working_days") val workingDays: Double? = null,
+    @SerialName("month_working_days") val monthWorkingDays: Double? = null,
     val ratio: Double? = null,
     val formula: String? = null,
     val note: String? = null
+)
+
+@Serializable
+data class PayslipAbsenceDeduction(
+    @SerialName("has_deduction") val hasDeduction: Boolean? = false,
+    @SerialName("alpha_days") val alphaDays: Double? = 0.0,
+    @SerialName("permit_days") val permitDays: Double? = 0.0,
+    @SerialName("permit_cut_days") val permitCutDays: Double? = 0.0,
+    @SerialName("permit_deduct_days") val permitDeductDays: Double? = 0.0,
+    @SerialName("sick_days") val sickDays: Double? = 0.0,
+    @SerialName("is_daily_schema") val isDailySchema: Boolean? = false,
+    @SerialName("total_deduct_days") val totalDeductDays: Double? = 0.0
 )
 
 @Serializable
@@ -1244,22 +1262,30 @@ data class PayslipPeriod(
 
 @Serializable
 data class PayslipDetailItem(
-    val id: Long? = null,
+    val id: JsonElement? = null,
     @SerialName("payroll_run_id") val payrollRunId: Long? = null,
     @SerialName("payroll_component_id") val payrollComponentId: Long? = null,
     val label: String? = null,
     val type: String? = null,
-    val amount: Double? = null
+    val amount: Double? = null,
+    val formula: String? = null
 )
 
 @Serializable
 data class PayslipAttendance(
-    @SerialName("total_period_days") val totalPeriodDays: Int? = null,
-    @SerialName("work_days") val workDays: Int? = null,
-    val hadir: Int? = null,
-    val libur: Int? = null,
-    val cuti: Int? = null,
-    val alpha: Int? = null,
+    @SerialName("total_period_days") val totalPeriodDays: Double? = null,
+    @SerialName("work_days") val workDays: Double? = null,
+    val hadir: Double? = null,
+    val holiday: Double? = null,
+    @SerialName("late_minutes") val lateMinutes: Double? = null,
+    @SerialName("overtime_minutes") val overtimeMinutes: Double? = null,
+    val libur: Double? = null,
+    val cuti: Double? = null,
+    val alpha: Double? = null,
+    val sick: Double? = null,
+    val permit: Double? = null,
+    @SerialName("permit_cut_days") val permitCutDays: Double? = null,
+    @SerialName("permit_deduct_days") val permitDeductDays: Double? = null,
     @SerialName("rate_per_day") val ratePerDay: Double? = null,
     @SerialName("rate_per_hour") val ratePerHour: Double? = null
 )
