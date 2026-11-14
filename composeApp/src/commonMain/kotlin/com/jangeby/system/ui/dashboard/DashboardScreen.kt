@@ -530,10 +530,10 @@ fun DashboardScreen(
                             listOf("Jam Masuk" to sessionClockIn, "Jam Keluar" to sessionClockOut).forEach { (label, time) ->
                                 val recorded = !time.isNullOrBlank()
                                 val statusColor = if (recorded) Color(0xFF36A34A) else Color(0xFF777777)
-                                Column(Modifier.weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFFF0F0F0)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Column(Modifier.weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFFF0F0F0)).padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                     Text(label, fontSize = 11.sp, color = Color(0xFF666666))
                                     Text(if (recorded) DateTimeUtils.formatTimeOnly(time) else "--:--", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = if (recorded) Color(0xFF0B2942) else Color(0xFF888888))
-                                    Text(if (recorded) "? Sudah Absen" else "? Belum Absen", fontSize = 10.sp, color = statusColor)
+                                    Text(if (recorded) "Sudah Absen" else "Belum Absen", fontSize = 10.sp, color = statusColor)
                                 }
                             }
                         }
