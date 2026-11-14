@@ -176,7 +176,7 @@ fun ProfileScreen(
                             }
                         }
                     },
-                    enabled = !isUpdating,
+                    enabled = !isUpdating && profile != null,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -470,6 +470,17 @@ fun ProfileScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            if (isLoading) {
+                item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+            }
+            if (!isLoading && profile == null) {
+                item {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text("Profil belum tersedia. Silakan muat ulang.")
+                        TextButton(onClick = { viewModel.loadProfile() }) { Text("Coba Lagi") }
+                    }
+                }
+            }
             // Profile Header Box
             item {
                 Box(
@@ -627,7 +638,7 @@ fun ProfileScreen(
                                     photoBytes = selectedPhotoBytes
                                 )
                             },
-                            enabled = !isUpdating,
+                            enabled = !isUpdating && profile != null,
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Primary),
                             shape = RoundedCornerShape(10.dp)
@@ -662,7 +673,10 @@ fun ProfileScreen(
                             icon = Icons.Default.Edit,
                             label = "Tanda Tangan",
                             color = Color(0xFF0284C7),
-                            onClick = { showSignatureSheet = true }
+                            onClick = {
+                                viewModel.loadSignature()
+                                showSignatureSheet = true
+                            }
                         )
                         HorizontalDivider(color = Color(0xFFF1F5F9))
                         ProfileMenuRow(

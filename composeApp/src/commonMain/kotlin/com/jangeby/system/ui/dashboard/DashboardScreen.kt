@@ -127,7 +127,6 @@ fun DashboardScreen(
     var myMilestoneTodayForPopup by remember { mutableStateOf<MilestoneItemData?>(null) }
 
     LaunchedEffect(Unit) {
-        com.jangeby.system.notification.FcmManager.syncToken()
         try {
             val client = ApiClient.create()
 

@@ -14,7 +14,7 @@ fun initSettings(context: Context) {
 
 fun getAppContext(): Context? = applicationContext
 
-actual fun createSettings(): Settings {
+private val secureSettings: Settings by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
     val context = applicationContext ?: throw IllegalStateException("Settings context not initialized. Call initSettings(context) first in Application class.")
     
     val masterKey = MasterKey.Builder(context)
@@ -29,5 +29,8 @@ actual fun createSettings(): Settings {
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    return SharedPreferencesSettings(sharedPreferences)
+    SharedPreferencesSettings(sharedPreferences)
 }
+
+// Share the encrypted preferences and key setup across screens and API requests.
+actual fun createSettings(): Settings = secureSettings

@@ -23,6 +23,8 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.encodeToString
 
 class ProfileViewModel(private val appSettings: AppSettings) : ViewModel() {
@@ -49,19 +51,21 @@ class ProfileViewModel(private val appSettings: AppSettings) : ViewModel() {
     val successMessage: StateFlow<String?> = _successMessage
 
     init {
-        appSettings.userJson?.let {
-            runCatching {
-                _profile.value = ApiClient.json.decodeFromString<EmployeeProfile>(it)
-            }
-        }
         loadProfile()
-        loadSignature()
     }
 
     fun loadProfile() {
+        if (_isLoading.value) return
         _isLoading.value = true
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try {
+                if (_profile.value == null) {
+                    appSettings.userJson?.let { cached ->
+                        _profile.value = runCatching {
+                            ApiClient.json.decodeFromString<EmployeeProfile>(cached)
+                        }.getOrNull()
+                    }
+                }
                 val client = ApiClient.create()
                 val response = client.get(ApiClient.BASE_URL + "employee/profile")
                 if (response.status.value in 200..299) {
@@ -79,10 +83,16 @@ class ProfileViewModel(private val appSettings: AppSettings) : ViewModel() {
                         appSettings.hasSubordinates = res.data.hasSubordinates
                         appSettings.subordinatesCount = res.data.subordinatesCount
                         appSettings.userJson = ApiClient.json.encodeToString(updatedProfile)
+                    } else {
+                        _errorMessage.value = "Data profil belum tersedia. Silakan muat ulang."
                     }
+                } else {
+                    _errorMessage.value = "Gagal memuat profil (${response.status.value}). Silakan muat ulang."
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // Keep local cached fallback if network error
+                _errorMessage.value = "Profil belum dapat dimuat. Periksa koneksi dan coba lagi."
             } finally {
                 _isLoading.value = false
             }
