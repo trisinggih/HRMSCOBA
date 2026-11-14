@@ -24,6 +24,8 @@ import com.jangeby.system.data.remote.PayslipItem
 import com.jangeby.system.ui.component.*
 import com.jangeby.system.ui.theme.*
 import org.koin.compose.viewmodel.koinViewModel
+import io.github.vinceglb.filekit.compose.rememberFileSaverLauncher
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +38,15 @@ fun PayslipScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
+    val pdfLoading by viewModel.pdfLoading.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val pdfSaver = rememberFileSaverLauncher { saved ->
+        if (saved != null) scope.launch { snackbar.showSnackbar("PDF slip gaji berhasil disimpan") }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             HrmsTopBar(
                 title = "Slip Gaji",
@@ -48,6 +58,26 @@ fun PayslipScreen(
                     }
                 },
                 actions = {
+                    selectedPayslip?.let { slip ->
+                        TextButton(
+                            enabled = !pdfLoading,
+                            onClick = {
+                                viewModel.downloadPdf(
+                                    slip.id,
+                                    onReady = { bytes ->
+                                        pdfSaver.launch(bytes = bytes, baseName = "Slip_Gaji_${slip.id}", extension = "pdf")
+                                    },
+                                    onError = { message -> scope.launch { snackbar.showSnackbar(message) } }
+                                )
+                            }
+                        ) {
+                            if (pdfLoading) {
+                                CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Text("Unduh PDF", color = Color.White)
+                            }
+                        }
+                    }
                     IconButton(onClick = { selectedPayslip?.let { viewModel.selectPayslip(it) } ?: viewModel.loadPayslips() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.White)
                     }

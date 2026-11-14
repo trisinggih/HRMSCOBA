@@ -29,6 +29,36 @@ class PayslipViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _pdfLoading = MutableStateFlow(false)
+    val pdfLoading: StateFlow<Boolean> = _pdfLoading.asStateFlow()
+
+    fun downloadPdf(id: Long, onReady: (ByteArray) -> Unit, onError: (String) -> Unit) {
+        if (_pdfLoading.value) return
+        _pdfLoading.value = true
+        viewModelScope.launch {
+            try {
+                // Employee endpoint uses the web payslip template and checks ownership.
+                val response = ApiClient.create().get("${ApiClient.BASE_URL}my/payslips/$id/pdf")
+                if (response.status.value !in 200..299) {
+                    onError("Gagal mengunduh PDF (${response.status.value}). Silakan coba lagi.")
+                    return@launch
+                }
+                val bytes: ByteArray = response.body()
+                if (bytes.size < 5 || bytes.copyOfRange(0, 5).decodeToString() != "%PDF-") {
+                    onError("Respons server bukan PDF. Silakan coba lagi.")
+                    return@launch
+                }
+                onReady(bytes)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                onError("PDF belum dapat diunduh. Periksa koneksi dan coba lagi.")
+            } finally {
+                _pdfLoading.value = false
+            }
+        }
+    }
+
     init {
         loadPayslips()
     }
