@@ -95,6 +95,9 @@ fun DashboardScreen(
     }
     var badges by remember { mutableStateOf<BadgeResponse?>(null) }
     var overtimePunchEnabled by remember { mutableStateOf(false) }
+    var sessionClockIn by remember { mutableStateOf<String?>(null) }
+    var sessionClockOut by remember { mutableStateOf<String?>(null) }
+    var sessionDate by remember { mutableStateOf(DateTimeUtils.todayDateString()) }
     var plannedClockOutAt by remember { mutableStateOf<String?>(null) }
     var hasClockedOut by remember { mutableStateOf(false) }
     var isCurrentlyCheckedIn by remember { mutableStateOf(false) }
@@ -110,6 +113,9 @@ fun DashboardScreen(
                     hasClockedOut = result.data?.clockOutAt != null
                     overtimePunchEnabled = result.data?.overtimePunchEnabled == true
                     plannedClockOutAt = result.data?.plannedClockOutAt
+                    sessionClockIn = result.data?.clockInAt
+                    sessionClockOut = result.data?.clockOutAt
+                    sessionDate = result.data?.activeDate ?: DateTimeUtils.todayDateString()
                     if (isCurrentlyCheckedIn) com.jangeby.system.hardware.LocationTracker.start()
                     else com.jangeby.system.hardware.LocationTracker.stop()
                 } else {
@@ -506,38 +512,28 @@ fun DashboardScreen(
             item {
                 val completed = hasClockedOut && !isCurrentlyCheckedIn
                 val legacyOvertime = overtimePunchEnabled && completed && overtimeToday?.status in listOf("approved", "in_progress")
-                val statusText = when {
-                    isCurrentlyCheckedIn -> "Sedang Bekerja"
-                    completed -> "Presensi Selesai"
-                    else -> "Belum Check In"
-                }
-                val statusColor = if (completed) Color(0xFF16A34A) else primaryTeal
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFDDEBEC)),
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(primaryTeal.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.DateRange, null, tint = primaryTeal, modifier = Modifier.size(25.dp))
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text("Absensi Kehadiran", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                                Text(DateTimeUtils.todayDateString(), fontSize = 12.sp, color = Color(0xFF64748B))
-                            }
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Presensi Hari Ini", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF242424))
+                            val date = runCatching { kotlinx.datetime.LocalDate.parse(sessionDate) }.getOrNull()
+                            val months = listOf("Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember")
+                            Text(date?.let { "${it.dayOfMonth} ${months[it.monthNumber - 1]} ${it.year}" } ?: sessionDate, fontSize = 11.sp, color = Color(0xFF666666))
                         }
-                        Surface(color = statusColor.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp)) {
-                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(statusText, color = statusColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                    if (isCurrentlyCheckedIn && plannedClockOutAt != null) {
-                                        Text("Jadwal pulang: ${plannedClockOutAt!!.take(10)} ${plannedClockOutAt!!.substringAfter("T").take(5)} WIB", color = Color(0xFF64748B), fontSize = 12.sp)
-                                    } else if (completed) {
-                                        Text("Terima kasih, presensi Anda telah tercatat.", color = Color(0xFF64748B), fontSize = 12.sp)
-                                    }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf("Jam Masuk" to sessionClockIn, "Jam Keluar" to sessionClockOut).forEach { (label, time) ->
+                                val recorded = !time.isNullOrBlank()
+                                val statusColor = if (recorded) Color(0xFF36A34A) else Color(0xFF777777)
+                                Column(Modifier.weight(1f).clip(RoundedCornerShape(7.dp)).background(Color(0xFFF0F0F0)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text(label, fontSize = 11.sp, color = Color(0xFF666666))
+                                    Text(if (recorded) DateTimeUtils.formatTimeOnly(time) else "--:--", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = if (recorded) Color(0xFF0B2942) else Color(0xFF888888))
+                                    Text(if (recorded) "? Sudah Absen" else "? Belum Absen", fontSize = 10.sp, color = statusColor)
                                 }
                             }
                         }
