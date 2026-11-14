@@ -29,6 +29,8 @@ import coil3.compose.AsyncImage
 import com.jangeby.system.data.local.AppSettings
 import com.jangeby.system.data.remote.*
 import com.jangeby.system.ui.component.PayslipIcon
+import com.jangeby.system.ui.component.LatenessIcon
+import com.jangeby.system.ui.component.MoneyIcon
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import kotlinx.datetime.TimeZone
@@ -222,19 +224,19 @@ fun DashboardScreen(
     val primaryVariant = Color(0xFF005662)
 
     val menuItems = listOfNotNull(
-        if (canViewLateness) MenuItem("Terlambat", Icons.Default.DateRange, 0, onNavigateToLateness) else null,
         MenuItem("Presensi", Icons.Default.DateRange, 0, onNavigateToAttendance),
         MenuItem("Pengajuan", Icons.Default.Send, badges?.pengajuanCount ?: 0, onNavigateToPengajuan),
         MenuItem("Approval", Icons.Default.CheckCircle, badges?.approvalCount ?: 0, onNavigateToApproval),
         MenuItem("Tugas", Icons.Default.List, badges?.taskCount ?: 0, onNavigateToTask),
         MenuItem("Slip Gaji", PayslipIcon, 0, onNavigateToPayslip),
         MenuItem("Aset", Icons.Default.ShoppingCart, 0, onNavigateToAsset),
-        MenuItem("Kasbon", Icons.Default.Star, badges?.kasbonCount ?: 0, onNavigateToKasbon),
+        MenuItem("Kasbon", MoneyIcon, badges?.kasbonCount ?: 0, onNavigateToKasbon),
         // MenuItem("Klaim", Icons.Default.Person, badges?.reimburseCount ?: 0, onNavigateToReimburse), // Sementara di-hide
         MenuItem("Lembur", Icons.Default.AddCircle, badges?.overtimeCount ?: 0, onNavigateToOvertime),
         MenuItem("Check Point", Icons.Default.LocationOn, 0, onNavigateToCheckPoint),
         MenuItem("Pengumuman", Icons.Default.Notifications, badges?.infoCount ?: 0, { onNavigateToAnnouncement(0) }),
-        MenuItem("Personal", Icons.Default.AccountBox, 0, onNavigateToPersonal)
+        MenuItem("Personal", Icons.Default.AccountBox, 0, onNavigateToPersonal),
+        if (canViewLateness) MenuItem("Terlambat", LatenessIcon, 0, onNavigateToLateness) else null
     )
 
     Scaffold(
