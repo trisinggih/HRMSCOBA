@@ -94,6 +94,8 @@ fun DashboardScreen(
         } catch (e: Exception) { canViewLateness = false }
     }
     var badges by remember { mutableStateOf<BadgeResponse?>(null) }
+    var overtimePunchEnabled by remember { mutableStateOf(false) }
+    var plannedClockOutAt by remember { mutableStateOf<String?>(null) }
     var hasClockedOut by remember { mutableStateOf(false) }
     var isCurrentlyCheckedIn by remember { mutableStateOf(false) }
     var overtimeToday by remember { mutableStateOf<OvertimeRequestItem?>(null) }
@@ -105,7 +107,9 @@ fun DashboardScreen(
                 if (response.status.value in 200..299) {
                     val result: ApiResponse<AttendanceSession> = response.body()
                     isCurrentlyCheckedIn = result.data?.canClockOut == true
-                    hasClockedOut = result.data?.canStartOvertime == true
+                    hasClockedOut = result.data?.clockOutAt != null
+                    overtimePunchEnabled = result.data?.overtimePunchEnabled == true
+                    plannedClockOutAt = result.data?.plannedClockOutAt
                     if (isCurrentlyCheckedIn) com.jangeby.system.hardware.LocationTracker.start()
                     else com.jangeby.system.hardware.LocationTracker.stop()
                 } else {
@@ -594,7 +598,10 @@ fun DashboardScreen(
                     color = Color(0xFF0F172A),
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
                 )
-                if (overtimeToday?.status in listOf("approved", "in_progress") && hasClockedOut && !isCurrentlyCheckedIn) {
+                if (!overtimePunchEnabled && isCurrentlyCheckedIn && plannedClockOutAt != null) {
+                    Text("Jadwal pulang: ${plannedClockOutAt!!.take(10)} ${plannedClockOutAt!!.substringAfter("T").take(5)} WIB", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = primaryTeal, fontSize = 12.sp)
+                }
+                if (overtimePunchEnabled && overtimeToday?.status in listOf("approved", "in_progress") && hasClockedOut && !isCurrentlyCheckedIn) {
                     // Tampilkan Tombol Lembur (jika ada pengajuan lembur yang di-approve atau in-progress dan tidak sedang shift reguler)
                     val isOtInProgress = overtimeToday?.status == "in_progress"
                     if (isOtInProgress) {

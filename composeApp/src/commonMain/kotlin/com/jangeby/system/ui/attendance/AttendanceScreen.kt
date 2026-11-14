@@ -395,7 +395,9 @@ fun TodayAttendanceHeader(
             if (isCheckedIn) "Masuk di Hari Libur" else "Libur / Off"
         } else "Libur / Off"
         val sStart = todayItem.shift?.startTime?.take(5) ?: "-"
-        val sEnd = todayItem.shift?.endTime?.take(5) ?: "-"
+        val plannedEnd = session?.plannedClockOutAt
+        val nextDayLabel = if (plannedEnd != null && plannedEnd.take(10) > (todayItem.date ?: "")) " (+1 hari)" else ""
+        val sEnd = (plannedEnd?.substringAfter("T")?.take(5) ?: todayItem.shift?.endTime?.take(5) ?: "-") + nextDayLabel
 
         if (todayItem.shift == null) {
             shiftText
