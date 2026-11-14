@@ -1,6 +1,15 @@
 package com.jangeby.system.ui.attendance
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import com.jangeby.system.ui.component.HrmsTopBar
+import com.jangeby.system.ui.component.LatenessIcon
+import com.jangeby.system.ui.theme.Background
+import com.jangeby.system.ui.theme.Primary
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -100,31 +109,46 @@ class TeamLatenessViewModel : ViewModel() {
 fun TeamLatenessScreen(onNavigateBack: () -> Unit, viewModel: TeamLatenessViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsState()
     LaunchedEffect(Unit) { viewModel.load() }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Terlambat") }, navigationIcon = {
-            IconButton(onClick = onNavigateBack) { Icon(Icons.Default.ArrowBack, "Kembali") }
-        }, actions = {
-            IconButton(onClick = { viewModel.load() }, enabled = !state.loading) { Icon(Icons.Default.Refresh, "Muat ulang") }
-        })
-    }) { padding ->
+    Scaffold(
+        containerColor = Background,
+        topBar = {
+            HrmsTopBar(
+                title = "Terlambat",
+                onNavigateBack = onNavigateBack,
+                actions = {
+                    IconButton(onClick = { viewModel.load() }, enabled = !state.loading) {
+                        Icon(Icons.Default.Refresh, "Muat Ulang", tint = Color.White)
+                    }
+                }
+            )
+        }
+    ) { padding ->
         LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Text(if (state.data.scope == "all") "Keterlambatan seluruh karyawan" else "Keterlambatan bawahan langsung", fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { viewModel.changeMonth(-1) }, enabled = !state.loading) { Text("Sebelumnya") }
-                    Text(viewModel.month.toString().take(7), fontWeight = FontWeight.Bold)
-                    TextButton(onClick = { viewModel.changeMonth(1) }, enabled = !state.loading) { Text("Berikutnya") }
+                    IconButton(onClick = { viewModel.changeMonth(-1) }, enabled = !state.loading) { Icon(Icons.Default.KeyboardArrowLeft, "Bulan Sebelumnya", tint = Primary) }
+                    Text("${listOf("Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember")[viewModel.month.monthNumber - 1]} ${viewModel.month.year}", fontWeight = FontWeight.Bold, color = Primary)
+                    IconButton(onClick = { viewModel.changeMonth(1) }, enabled = !state.loading) { Icon(Icons.Default.KeyboardArrowRight, "Bulan Berikutnya", tint = Primary) }
                 }
                 OutlinedTextField(value = viewModel.search, onValueChange = { viewModel.search = it }, label = { Text("Nama / NIP karyawan") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                TextButton(onClick = { viewModel.load() }, enabled = !state.loading) { Text("Cari") }
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = { viewModel.load() }, enabled = !state.loading, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Cari Karyawan")
+                }
             }
             item {
                 val summary = state.data.summary
-                Card(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${summary.employees} karyawan")
-                        Text("${summary.records} kejadian")
-                        Text("${summary.minutes} menit")
+                        listOf("Karyawan" to summary.employees, "Kejadian" to summary.records, "Menit" to summary.minutes).forEach { (label, count) ->
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(count.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Primary)
+                                Text(label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                            }
+                        }
                     }
                 }
             }
@@ -134,22 +158,36 @@ fun TeamLatenessScreen(onNavigateBack: () -> Unit, viewModel: TeamLatenessViewMo
                 TextButton(onClick = { viewModel.load() }, enabled = !state.loading) { Text("Coba lagi") }
             }
             if (!state.loading && state.error == null && state.data.items.isEmpty()) item {
-                Text("Belum ada keterlambatan pada bulan ini.", modifier = Modifier.padding(vertical = 24.dp))
+                Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(LatenessIcon, null, modifier = Modifier.size(44.dp), tint = Color(0xFF94A3B8))
+                    Spacer(Modifier.height(12.dp))
+                    Text("Belum Ada Keterlambatan", fontWeight = FontWeight.Bold)
+                    Text("Tidak ada data untuk periode dan pencarian ini.", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                }
             }
             if (!state.loading) items(state.data.items, key = { it.id }) { employee ->
-                Card(Modifier.fillMaxWidth()) {
+                Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (!employee.photo.isNullOrBlank()) AsyncImage(model = employee.photo, contentDescription = "Foto ${employee.name}", modifier = Modifier.size(44.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                            Box(Modifier.size(44.dp).clip(CircleShape).background(Primary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                                Text(employee.name?.take(1)?.uppercase() ?: "K", color = Primary, fontWeight = FontWeight.Bold)
+                                if (!employee.photo.isNullOrBlank()) AsyncImage(model = ApiClient.sanitizeImageUrl(employee.photo), contentDescription = "Foto ${employee.name}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            }
                             Column(Modifier.weight(1f)) {
-                                Text(employee.name ?: "Karyawan", fontWeight = FontWeight.Bold)
+                                Text(employee.name ?: "Karyawan", fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 Text(employee.number ?: "-", style = MaterialTheme.typography.bodySmall)
                             }
-                            Text("${employee.minutes} menit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Surface(color = Color(0xFFFFF1F2), shape = RoundedCornerShape(8.dp)) {
+                                Text("${employee.minutes} menit", modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), color = Color(0xFFDC2626), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                            }
                         }
-                        Text(employee.date)
-                        Text("${employee.shiftName ?: "Shift"} ? Jadwal ${employee.shiftStart ?: "-"} WIB")
-                        Text("Masuk ${employee.clockIn ?: "-"} WIB")
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                        Text(employee.date, style = MaterialTheme.typography.labelMedium, color = Primary)
+                        Text(employee.shiftName ?: "Shift", fontWeight = FontWeight.Medium)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Jadwal ${employee.shiftStart ?: "-"} WIB", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                            Text("Masuk ${employee.clockIn ?: "-"} WIB", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
