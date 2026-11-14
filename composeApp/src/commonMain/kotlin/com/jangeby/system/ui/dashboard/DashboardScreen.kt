@@ -502,6 +502,72 @@ fun DashboardScreen(
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
+            // Attendance is the primary action on Home.
+            item {
+                val completed = hasClockedOut && !isCurrentlyCheckedIn
+                val legacyOvertime = overtimePunchEnabled && completed && overtimeToday?.status in listOf("approved", "in_progress")
+                val statusText = when {
+                    isCurrentlyCheckedIn -> "Sedang Bekerja"
+                    completed -> "Presensi Selesai"
+                    else -> "Belum Check In"
+                }
+                val statusColor = if (completed) Color(0xFF16A34A) else primaryTeal
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFDDEBEC)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(primaryTeal.copy(alpha = 0.10f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.DateRange, null, tint = primaryTeal, modifier = Modifier.size(25.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text("Absensi Kehadiran", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                                Text(DateTimeUtils.todayDateString(), fontSize = 12.sp, color = Color(0xFF64748B))
+                            }
+                        }
+                        Surface(color = statusColor.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp)) {
+                            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(if (completed) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = statusColor, modifier = Modifier.size(18.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(statusText, color = statusColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    if (isCurrentlyCheckedIn && plannedClockOutAt != null) {
+                                        Text("Jadwal pulang: ${plannedClockOutAt!!.take(10)} ${plannedClockOutAt!!.substringAfter("T").take(5)} WIB", color = Color(0xFF64748B), fontSize = 12.sp)
+                                    } else if (completed) {
+                                        Text("Terima kasih, presensi Anda telah tercatat.", color = Color(0xFF64748B), fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                if (legacyOvertime) {
+                                    onNavigateToMapAttendance(if (overtimeToday?.status == "in_progress") "overtime_clock_out" else "overtime_clock_in")
+                                } else {
+                                    onNavigateToAttendance()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(13.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentlyCheckedIn) Color(0xFFDC2626) else primaryTeal),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                        ) {
+                            Icon(if (isCurrentlyCheckedIn) Icons.Default.ExitToApp else if (completed) Icons.Default.CheckCircle else Icons.Default.Person, null, modifier = Modifier.size(21.dp))
+                            Spacer(Modifier.width(9.dp))
+                            Text(when {
+                                legacyOvertime -> if (overtimeToday?.status == "in_progress") "Check Out Lembur" else "Check In Lembur"
+                                isCurrentlyCheckedIn -> "Check Out"
+                                completed -> "Lihat Presensi"
+                                else -> "Check In"
+                            }, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // List Menu Label
             item {
                 Text(
@@ -586,276 +652,6 @@ fun DashboardScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // Absensi Kehadiran Section
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Absensi Kehadiran",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
-                )
-                if (!overtimePunchEnabled && isCurrentlyCheckedIn && plannedClockOutAt != null) {
-                    Text("Jadwal pulang: ${plannedClockOutAt!!.take(10)} ${plannedClockOutAt!!.substringAfter("T").take(5)} WIB", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = primaryTeal, fontSize = 12.sp)
-                }
-                if (overtimePunchEnabled && overtimeToday?.status in listOf("approved", "in_progress") && hasClockedOut && !isCurrentlyCheckedIn) {
-                    // Tampilkan Tombol Lembur (jika ada pengajuan lembur yang di-approve atau in-progress dan tidak sedang shift reguler)
-                    val isOtInProgress = overtimeToday?.status == "in_progress"
-                    if (isOtInProgress) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { },
-                                enabled = false,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.5.dp, Color.LightGray),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.LightGray,
-                                    disabledContentColor = Color.LightGray
-                                )
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.ExitToApp,
-                                        contentDescription = null,
-                                        tint = Color.LightGray,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Check In",
-                                        color = Color.LightGray,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-
-                            Button(
-                                onClick = { onNavigateToMapAttendance("overtime_clock_out") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFEF4444)
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.ExitToApp,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Check Out",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(
-                                onClick = { onNavigateToMapAttendance("overtime_clock_in") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF7C3AED)
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.ExitToApp,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Check In",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-
-                            OutlinedButton(
-                                onClick = { },
-                                enabled = false,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                border = BorderStroke(1.5.dp, Color.LightGray),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = Color.LightGray,
-                                    disabledContentColor = Color.LightGray
-                                )
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.ExitToApp,
-                                        contentDescription = null,
-                                        tint = Color.LightGray,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Check Out",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else if (hasClockedOut) {
-                    // Posisi hari ini sudah Clock In & Clock Out dan belum ada lembur di-approve:
-                    // Ganti tombol Check In dengan tombol "Pengajuan Lembur"
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(
-                            onClick = onNavigateToOvertime,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Lembur",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-
-                        OutlinedButton(
-                            onClick = onNavigateToPengajuan,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            border = BorderStroke(1.5.dp, primaryTeal),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryTeal)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = primaryTeal,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Leave Request",
-                                    color = primaryTeal,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    // Belum absen hari ini atau sedang shift (Check Out) atau sudah berganti hari (kembali ke Check In)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Button(
-                            onClick = onNavigateToAttendance,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentlyCheckedIn) Color(0xFFEF4444) else primaryTeal),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.ExitToApp,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isCurrentlyCheckedIn) "Check Out" else "Check In",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-
-                        OutlinedButton(
-                            onClick = onNavigateToPengajuan,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            border = BorderStroke(1.5.dp, primaryTeal),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = primaryTeal)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = primaryTeal,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Leave Request",
-                                    color = primaryTeal,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                    }
-                }
             }
 
             // Notifikasi Section
