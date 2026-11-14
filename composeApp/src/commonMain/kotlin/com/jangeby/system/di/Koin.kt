@@ -44,6 +44,7 @@ val appModule = module {
     viewModel<PermitViewModel> { PermitViewModel() }
     viewModel<PayslipViewModel> { PayslipViewModel() }
     viewModel<com.jangeby.system.ui.attendance.TeamLatenessViewModel> { com.jangeby.system.ui.attendance.TeamLatenessViewModel() }
+    viewModel<com.jangeby.system.ui.kpi.KpiViewModel> { com.jangeby.system.ui.kpi.KpiViewModel() }
     viewModel<ProfileViewModel> { ProfileViewModel(get()) }
 }
 

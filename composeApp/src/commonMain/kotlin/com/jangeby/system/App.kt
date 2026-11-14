@@ -136,6 +136,7 @@ fun App() {
                     onNavigateToAsset = { navController.navigate(AssetRoute) },
                     onNavigateToCheckPoint = { navController.navigate(CheckPointRoute) },
                     onNavigateToPersonal = { navController.navigate(PersonalRoute) },
+                    onNavigateToKpi = { navController.navigate(KpiRoute) },
                     onNavigateToProfile = { navController.navigate(ProfileRoute) },
                     onNavigateToLateness = { navController.navigate(TeamLatenessRoute) }
                 )
@@ -233,6 +234,10 @@ fun App() {
 
             composable<CheckPointRoute> {
                 CheckPointScreen(onNavigateBack = { navController.popBackStack() })
+            }
+
+            composable<KpiRoute> {
+                com.jangeby.system.ui.kpi.KpiScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<ProfileRoute> {

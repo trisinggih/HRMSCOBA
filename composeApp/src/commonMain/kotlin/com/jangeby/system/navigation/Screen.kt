@@ -73,3 +73,6 @@ object CheckPointRoute
 
 @Serializable
 object TeamLatenessRoute
+
+@Serializable
+object KpiRoute

@@ -64,6 +64,7 @@ fun DashboardScreen(
     onNavigateToAsset: () -> Unit,
     onNavigateToCheckPoint: () -> Unit,
     onNavigateToPersonal: () -> Unit,
+    onNavigateToKpi: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToLateness: () -> Unit = {}
 ) {
@@ -227,6 +228,7 @@ fun DashboardScreen(
         MenuItem("Pengajuan", Icons.Default.Send, badges?.pengajuanCount ?: 0, onNavigateToPengajuan),
         MenuItem("Approval", Icons.Default.CheckCircle, badges?.approvalCount ?: 0, onNavigateToApproval),
         MenuItem("Tugas", Icons.Default.List, badges?.taskCount ?: 0, onNavigateToTask),
+        MenuItem("KPI Saya", Icons.Default.Star, 0, onNavigateToKpi),
         MenuItem("Slip Gaji", PayslipIcon, 0, onNavigateToPayslip),
         MenuItem("Aset", Icons.Default.ShoppingCart, 0, onNavigateToAsset),
         MenuItem("Kasbon", MoneyIcon, badges?.kasbonCount ?: 0, onNavigateToKasbon),

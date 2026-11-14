@@ -1289,3 +1289,99 @@ data class PayslipAttendance(
     @SerialName("rate_per_day") val ratePerDay: Double? = null,
     @SerialName("rate_per_hour") val ratePerHour: Double? = null
 )
+
+
+@Serializable
+data class KpiAssessmentItem(
+    val id: Long,
+    @SerialName("transaction_number") val transactionNumber: String? = null,
+    @SerialName("period_id") val periodId: Long? = null,
+    @SerialName("employee_id") val employeeId: Long? = null,
+    @SerialName("reviewer_id") val reviewerId: Long? = null,
+    val status: String? = null,
+    @SerialName("final_score") val finalScore: String? = null,
+    @SerialName("reviewer_notes") val reviewerNotes: String? = null,
+    @SerialName("self_notes") val selfNotes: String? = null,
+    @SerialName("self_assessed_at") val selfAssessedAt: String? = null,
+    @SerialName("approved_at") val approvedAt: String? = null,
+    val period: KpiPeriodInfo? = null,
+    val template: KpiTemplateInfo? = null,
+    val reviewer: KpiReviewerInfo? = null,
+    val predicate: KpiPredicateInfo? = null,
+    val scores: List<KpiAssessmentScoreItem>? = null
+)
+
+@Serializable
+data class KpiPeriodInfo(
+    val id: Long? = null,
+    val name: String? = null,
+    val type: String? = null,
+    @SerialName("start_date") val startDate: String? = null,
+    @SerialName("end_date") val endDate: String? = null
+)
+
+@Serializable
+data class KpiTemplateInfo(
+    val id: Long? = null,
+    val name: String? = null,
+    @SerialName("template_indicators") val templateIndicators: List<KpiTemplateIndicatorItem>? = null
+)
+
+@Serializable
+data class KpiReviewerInfo(
+    val id: Long? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class KpiPredicateInfo(
+    val grade: String? = null,
+    val label: String? = null,
+    val badge: String? = null
+)
+
+@Serializable
+data class KpiTemplateIndicatorItem(
+    val id: Long,
+    val weight: String? = null,
+    val target: String? = null,
+    @SerialName("target_value") val targetValue: String? = null,
+    val unit: String? = null,
+    val direction: String? = null,
+    @SerialName("max_achievement") val maxAchievement: String? = null,
+    val indicator: KpiIndicatorInfo? = null
+)
+
+@Serializable
+data class KpiIndicatorInfo(
+    val id: Long? = null,
+    val name: String? = null,
+    val category: String? = null,
+    val direction: String? = null,
+    @SerialName("default_target") val defaultTarget: String? = null,
+    @SerialName("measurement_unit") val measurementUnit: String? = null
+)
+
+@Serializable
+data class KpiAssessmentScoreItem(
+    val id: Long? = null,
+    @SerialName("template_indicator_id") val templateIndicatorId: Long? = null,
+    @SerialName("actual_value") val actualValue: String? = null,
+    @SerialName("achievement_pct") val achievementPct: String? = null,
+    @SerialName("weighted_score") val weightedScore: String? = null,
+    val notes: String? = null,
+    @SerialName("template_indicator") val templateIndicator: KpiTemplateIndicatorItem? = null
+)
+
+@Serializable
+data class SubmitSelfAssessmentRequest(
+    val scores: List<SelfAssessmentScorePayload>,
+    @SerialName("self_notes") val selfNotes: String? = null
+)
+
+@Serializable
+data class SelfAssessmentScorePayload(
+    @SerialName("template_indicator_id") val templateIndicatorId: Long,
+    @SerialName("actual_value") val actualValue: Double? = null,
+    val notes: String? = null
+)
