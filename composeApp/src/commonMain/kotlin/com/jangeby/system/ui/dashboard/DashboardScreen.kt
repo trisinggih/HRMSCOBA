@@ -531,7 +531,6 @@ fun DashboardScreen(
                         }
                         Surface(color = statusColor.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp)) {
                             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(if (completed) Icons.Default.CheckCircle else Icons.Default.Info, null, tint = statusColor, modifier = Modifier.size(18.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(statusText, color = statusColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                                     if (isCurrentlyCheckedIn && plannedClockOutAt != null) {
@@ -555,8 +554,6 @@ fun DashboardScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentlyCheckedIn) Color(0xFFDC2626) else primaryTeal),
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                         ) {
-                            Icon(if (isCurrentlyCheckedIn) Icons.Default.ExitToApp else if (completed) Icons.Default.CheckCircle else Icons.Default.Person, null, modifier = Modifier.size(21.dp))
-                            Spacer(Modifier.width(9.dp))
                             Text(when {
                                 legacyOvertime -> if (overtimeToday?.status == "in_progress") "Check Out Lembur" else "Check In Lembur"
                                 isCurrentlyCheckedIn -> "Check Out"
