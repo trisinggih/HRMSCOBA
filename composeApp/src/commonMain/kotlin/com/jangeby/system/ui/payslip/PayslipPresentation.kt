@@ -10,6 +10,12 @@ fun JsonObject?.obj(key: String): JsonObject? = this?.get(key) as? JsonObject
 
 object PayslipPresentation {
     private val json = Json { ignoreUnknownKeys = true }
+    fun lateFineEvents(item: PayslipItem): List<JsonObject> {
+        val policy = item.breakdown.obj("lateness_policy") ?: return emptyList()
+        if ((policy["fine_booked"] as? JsonPrimitive)?.booleanOrNull != true) return emptyList()
+        return (policy["events"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+            .filter { (it["alpha"] as? JsonPrimitive)?.booleanOrNull != true && (it.number("amount") ?: 0.0) > 0 }
+    }
     fun attendance(item: PayslipItem): PayslipAttendance? {
         val saved = item.breakdown.obj("attendance")?.let { json.decodeFromJsonElement<PayslipAttendance>(it) }
         val live = item.attendance ?: return saved

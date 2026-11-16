@@ -383,6 +383,14 @@ fun PayslipDetailView(
             PayslipSection("Potongan") {
                 deductions.forEach { component ->
                     PayslipValue(component.label ?: "Potongan", viewModel.formatRupiah(kotlin.math.abs(component.amount ?: 0.0)))
+                    if (component.label.orEmpty().startsWith("Keterlambatan")) {
+                        PayslipPresentation.lateFineEvents(payslip).forEach { event ->
+                            Text(
+                                "${event.text("date") ?: "-"} / ${PayslipPresentation.count(event.number("minutes"))} menit / ${viewModel.formatRupiah(event.number("amount"))}",
+                                fontSize = 12.sp, color = Color.Gray
+                            )
+                        }
+                    }
                 }
                 if (deductions.isEmpty()) {
                     if ((payslip.totalDeduction ?: 0.0) == 0.0) Text("Tidak ada potongan", color = Color.Gray)
