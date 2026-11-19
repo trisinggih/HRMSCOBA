@@ -316,6 +316,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
     }
 
     fun submitClockIn(lat: Double = -6.200000, lon: Double = 106.816666, isOvertime: Boolean = false, facePhoto: String = "", forceClockIn: Boolean = false) {
+        if (_state.value == AttendanceState.Loading) return
         _state.value = AttendanceState.Loading
         viewModelScope.launch {
             try {
@@ -340,7 +341,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                         loadShiftCalendar()
                     }
                 } else {
-                    val errMsg = try {
+                    val errMsg = if (response.status.value >= 500) {
+                        "Layanan presensi sedang bermasalah. Muat ulang untuk memeriksa apakah absensi sudah tercatat."
+                    } else try {
                         val err: ApiResponse<kotlinx.serialization.json.JsonElement?> = response.body()
                         err.message ?: "Gagal Clock In (${response.status.value})"
                     } catch (_: Exception) {
@@ -350,12 +353,13 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _state.value = AttendanceState.Error(e.message ?: "Koneksi gagal")
+                _state.value = AttendanceState.Error("Koneksi terputus. Muat ulang untuk memeriksa apakah absensi sudah tercatat.")
             }
         }
     }
 
     fun submitClockOut(lat: Double = -6.200000, lon: Double = 106.816666, isOvertime: Boolean = false, facePhoto: String = "") {
+        if (_state.value == AttendanceState.Loading) return
         _state.value = AttendanceState.Loading
         viewModelScope.launch {
             try {
@@ -373,7 +377,9 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                     _state.value = AttendanceState.Success(msg)
                     loadShiftCalendar()
                 } else {
-                    val errMsg = try {
+                    val errMsg = if (response.status.value >= 500) {
+                        "Layanan presensi sedang bermasalah. Muat ulang untuk memeriksa apakah absensi sudah tercatat."
+                    } else try {
                         val err: ApiResponse<kotlinx.serialization.json.JsonElement?> = response.body()
                         err.message ?: "Gagal Clock Out (${response.status.value})"
                     } catch (_: Exception) {
@@ -383,7 +389,7 @@ class AttendanceViewModel(private val appSettings: AppSettings) : ViewModel() {
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _state.value = AttendanceState.Error(e.message ?: "Koneksi gagal")
+                _state.value = AttendanceState.Error("Koneksi terputus. Muat ulang untuk memeriksa apakah absensi sudah tercatat.")
             }
         }
     }
