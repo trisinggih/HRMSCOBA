@@ -624,7 +624,7 @@ fun TodayAttendanceHeader(
                         Text(btnTitle, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                     if (session?.canClockIn != true) {
-                        Text("Clock in dibuka 1 jam sebelum shift (${DateTimeUtils.formatTimeOnly(session?.opensAt)} WIB)", color = Color.White, fontSize = 12.sp)
+                        Text("Clock in dibuka 2 jam sebelum shift (${DateTimeUtils.formatTimeOnly(session?.opensAt)} WIB)", color = Color.White, fontSize = 12.sp)
                     }
                     if (hasUnclosedPrevious && onSwitchToUnclosed != null) {
                         Spacer(modifier = Modifier.height(4.dp))
