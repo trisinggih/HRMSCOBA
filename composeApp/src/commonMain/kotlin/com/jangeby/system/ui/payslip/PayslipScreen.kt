@@ -408,6 +408,26 @@ fun PayslipDetailView(
                 PayslipValue("Gaji Bersih Diterima", viewModel.formatRupiah(payslip.netSalary), true)
             }
         }
+        if (payslip.period?.cycleType == "weekly_payslip") item {
+            PayslipSection("Rincian Pembayaran Tiap Minggu") {
+                Text("Slip mingguan tersimpan. Tidak ditambahkan lagi ke total slip bulanan. Minggu yang belum dibuat belum ditampilkan.", fontSize = 12.sp, color = Color.Gray)
+                payslip.weeklyPayments.orEmpty().forEach { week ->
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    Text("${week.text("start_date")} s/d ${week.text("end_date")}", fontWeight = FontWeight.Bold)
+                    Text("Status: ${week.text("status")}", fontSize = 12.sp)
+                    val a = week.obj("attendance")
+                    Text("${a.number("hadir") ?: a.number("present") ?: 0} Masuk / ${a.number("libur") ?: 0} Libur / ${a.number("cuti") ?: 0} Cuti / ${a.number("permit") ?: 0} Izin / ${a.number("sick") ?: 0} Sakit / ${a.number("alpha") ?: 0} Alpa", fontSize = 12.sp)
+                    (week["components"] as? kotlinx.serialization.json.JsonArray)?.forEach { element ->
+                        val component = element as? kotlinx.serialization.json.JsonObject
+                        PayslipValue(component.text("label") ?: "Komponen", (if (component.text("type") == "deduction") "- " else "") + viewModel.formatRupiah(component.number("amount")))
+                    }
+                    PayslipValue("Total Penerimaan", viewModel.formatRupiah(week.number("gross_earnings")))
+                    PayslipValue("Total Potongan", viewModel.formatRupiah(week.number("total_deduction")))
+                    PayslipValue("Gaji Bersih Mingguan", viewModel.formatRupiah(week.number("net_salary")), true)
+                }
+                if (payslip.weeklyPayments.isNullOrEmpty()) Text("Belum ada slip pembayaran mingguan pada periode ini.", color = Color.Gray)
+            }
+        }
         if (daily.isNotEmpty()) item {
             OutlinedButton(onClick = { showDaily = !showDaily }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showDaily) "Sembunyikan Rincian Absensi" else "Rincian Absensi (${daily.size} hari)")

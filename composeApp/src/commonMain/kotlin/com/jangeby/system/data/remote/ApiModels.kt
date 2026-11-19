@@ -1217,6 +1217,7 @@ data class PayslipItem(
     val company: JsonObject? = null,
     val breakdown: JsonObject? = null,
     @SerialName("attendance_logs") val attendanceLogs: List<JsonObject>? = null,
+    @SerialName("weekly_payments") val weeklyPayments: List<JsonObject>? = null,
     val deductions: List<JsonObject>? = null,
     val attendance: PayslipAttendance? = null,
     val period: PayslipPeriod? = null,
@@ -1253,6 +1254,7 @@ data class PayslipAbsenceDeduction(
 @Serializable
 data class PayslipPeriod(
     val id: Long,
+    @SerialName("cycle_type") val cycleType: String? = null,
     val name: String? = null,
     val period: String? = null,
     @SerialName("start_date") val startDate: String? = null,
@@ -1290,7 +1292,7 @@ data class PayslipAttendance(
     @SerialName("rate_per_hour") val ratePerHour: Double? = null
 )
 
-
+// ===================== KPI =====================
 @Serializable
 data class KpiAssessmentItem(
     val id: Long,
