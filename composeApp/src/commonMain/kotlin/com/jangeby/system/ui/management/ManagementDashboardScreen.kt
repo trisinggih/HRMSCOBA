@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jangeby.system.data.remote.ApiClient
+import com.jangeby.system.ui.component.DatePickerField
 import com.jangeby.system.ui.component.HrmsTopBar
 import com.jangeby.system.ui.theme.Background
 import com.jangeby.system.utils.DateTimeUtils
@@ -62,7 +63,8 @@ fun ManagementDashboardScreen(onNavigateBack: () -> Unit) {
     var options by remember { mutableStateOf(JsonObject(emptyMap())) }
     var company by remember { mutableStateOf("") }
     var branch by remember { mutableStateOf("") }
-    var applied by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var selectedDate by remember { mutableStateOf(DateTimeUtils.todayDateString()) }
+    var applied by remember { mutableStateOf(mapOf("date" to DateTimeUtils.todayDateString())) }
     var reload by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -96,7 +98,16 @@ fun ManagementDashboardScreen(onNavigateBack: () -> Unit) {
     }
     Scaffold(containerColor = Background, topBar = { HrmsTopBar("Dashboard", onNavigateBack, actions = { TextButton(onClick = { filters = true }) { Text("Filter", color = Color.White) } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item { Text("Ringkasan HRMS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text(DateTimeUtils.todayDateString(), style = MaterialTheme.typography.bodySmall) }
+            item {
+                DatePickerField(selectedDate, { date ->
+                    if (date.isNotBlank() && date != selectedDate) {
+                        selectedDate = date
+                        applied = applied + ("date" to date)
+                        detail = null; selected = null; data = JsonObject(emptyMap()); reload++
+                    }
+                }, "Tanggal Dashboard", maxDate = DateTimeUtils.todayDateString())
+            }
+            item { Text("Ringkasan HRMS", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error); TextButton(onClick = { reload++ }) { Text("Coba Lagi") } } }
             items(data["indicators"].arr().chunked(2)) { cards ->
@@ -106,7 +117,7 @@ fun ManagementDashboardScreen(onNavigateBack: () -> Unit) {
                         if (card["key"].text() == "pending_approval") open("Pending Approval", "dashboard/transactions", mapOf("status" to "pending"))
                         else open(card["label"].text(), "dashboard/employees", mapOf("category" to card["filter_category"].text().ifBlank { if (card["key"].text() == "absent_today") "not_present_all" else "all" }))
                     }, modifier = Modifier.weight(1f)) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(card["label"].text(), style = MaterialTheme.typography.labelMedium)
+                        Text(card["label"].text().replace("Hari Ini", "" ).trim(), style = MaterialTheme.typography.labelMedium)
                         Text(card["value"].text(), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                         Text(card["trendText"].text(), style = MaterialTheme.typography.bodySmall)
                     } }
@@ -135,7 +146,7 @@ fun ManagementDashboardScreen(onNavigateBack: () -> Unit) {
             val trends = statistics["trends"].obj()
             if (trends.isNotEmpty()) item {
                 ManagementChart("Karyawan Masuk & Keluar", trends["categories"].arr().map { it.text() }, trends["series"].arr().map { it.obj()["name"].text() to it.obj()["data"].arr().map { n -> n.number() } }) { index, series ->
-                    open("${if (series == 0) "Masuk" else "Keluar"} - ${trends["categories"].arr().getOrNull(index).text()}", "dashboard/trends", mapOf("month" to (index + 1).toString(), "year" to DateTimeUtils.todayDateString().take(4), "type" to if (series == 0) "joins" else "departures"))
+                    open("${if (series == 0) "Masuk" else "Keluar"} - ${trends["categories"].arr().getOrNull(index).text()}", "dashboard/trends", mapOf("month" to (index + 1).toString(), "year" to selectedDate.take(4), "type" to if (series == 0) "joins" else "departures"))
                 }
             }
             val transactions = statistics["transaction_trends"].obj()
@@ -162,7 +173,7 @@ fun ManagementDashboardScreen(onNavigateBack: () -> Unit) {
             Text("Filter Dashboard", style = MaterialTheme.typography.titleLarge)
             ManagementPicker("Perusahaan", company, options.options("companies"), { company = it; branch = "" })
             ManagementPicker("Cabang", branch, options.options("branches").filter { company.isBlank() || it.company == company }, { branch = it })
-            Button(onClick = { applied = mapOf("company_id" to company, "branch_id" to branch); filters = false; reload++ }, modifier = Modifier.fillMaxWidth()) { Text("Terapkan Filter") }
+            Button(onClick = { applied = mapOf("company_id" to company, "branch_id" to branch, "date" to selectedDate); filters = false; reload++ }, modifier = Modifier.fillMaxWidth()) { Text("Terapkan Filter") }
         }
     }
     detail?.let { current -> if (selected == null) ModalBottomSheet(onDismissRequest = { detail = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
