@@ -1,5 +1,10 @@
 package com.jangeby.system.ui.management
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -182,8 +187,21 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
         catch (e: Exception) { data = ManagementPage(); error = e.message ?: "Tidak dapat memuat data." }
         finally { loading = false }
     }
-    Scaffold(containerColor = Background, topBar = { HrmsTopBar(title, onNavigateBack, actions = { TextButton(onClick = { filters = true }) { Text("Filter", color = androidx.compose.ui.graphics.Color.White) } }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(request, page) { if (reports) listState.scrollToItem(0) }
+    val searchAction: () -> Unit = { applied = applied + ("search" to keyword); page = 1; request++ }
+    Scaffold(containerColor = Background, topBar = { HrmsTopBar(title, onNavigateBack, actions = { TextButton(onClick = { filters = true }) { Text("Filter", color = androidx.compose.ui.graphics.Color.White) } }) }, bottomBar = {
+        if (reports) Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
+            Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(enabled = !loading && page > 1, onClick = { page-- }) { Text("Sebelumnya") }
+                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+                    Text("${data.page} / ${data.lastPage}", Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                TextButton(enabled = !loading && error == null && page < data.lastPage, onClick = { page++ }) { Text("Berikutnya") }
+            }
+        }
+    }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), state = listState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (reports) item {
                 ManagementPicker("Jenis Laporan", activeReport, options.options("reports"), { selectedReport ->
                     report = selectedReport
@@ -204,8 +222,24 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
                 Text(if (applied["start_date"].isNullOrBlank() && applied["end_date"].isNullOrBlank()) "Semua tanggal" else "${applied["start_date"].orEmpty()} s/d ${applied["end_date"].orEmpty()}", style = MaterialTheme.typography.bodySmall)
             }
             item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(keyword, { keyword = it }, label = { Text(if (reports) "Cari karyawan" else "Cari nama / keterangan") }, modifier = Modifier.weight(1f), singleLine = true)
-                TextButton(enabled = !loading, onClick = { applied = applied + ("search" to keyword); page = 1; request++ }) { Text("Cari") }
+                if (reports) {
+                    Surface(modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
+                        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
+                            BasicTextField(keyword, { keyword = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                                textStyle = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurface),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { if (!loading) searchAction() }),
+                                decorationBox = { input ->
+                                    if (keyword.isEmpty()) Text("Cari nama...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    input()
+                                })
+                        }
+                    }
+                    FilledTonalButton(enabled = !loading, onClick = searchAction, modifier = Modifier.height(44.dp), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(horizontal = 16.dp)) { Text("Cari", style = MaterialTheme.typography.labelMedium) }
+                } else {
+                    OutlinedTextField(keyword, { keyword = it }, label = { Text("Cari nama / keterangan") }, modifier = Modifier.weight(1f), singleLine = true)
+                    TextButton(enabled = !loading, onClick = searchAction) { Text("Cari") }
+                }
             } }
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error); TextButton(onClick = { request++ }) { Text("Coba Lagi") } } }
@@ -213,7 +247,7 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
                 item { Text("${data.total} data", style = MaterialTheme.typography.labelLarge) }
                 if (data.items.isEmpty()) item { Text("Belum ada data sesuai filter.", Modifier.padding(vertical = 32.dp)) }
                 items(data.items) { row -> ManagementRecordCard(row, compact = reports) { selected = row } }
-                item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                if (!reports) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(enabled = page > 1, onClick = { page-- }) { Text("Sebelumnya") }
                     Text("${data.page} / ${data.lastPage}")
                     TextButton(enabled = page < data.lastPage, onClick = { page++ }) { Text("Berikutnya") }
