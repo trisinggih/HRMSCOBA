@@ -144,6 +144,22 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
     }
     Scaffold(containerColor = Background, topBar = { HrmsTopBar(title, onNavigateBack, actions = { TextButton(onClick = { filters = true }) { Text("Filter", color = androidx.compose.ui.graphics.Color.White) } }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (reports) item {
+                ManagementPicker("Jenis Laporan", activeReport, options.options("reports"), { selectedReport ->
+                    report = selectedReport
+                    status = ""
+                    selected = null
+                    if (selectedReport == "individual" && employee.isBlank()) {
+                        filters = true
+                    } else {
+                        activeReport = selectedReport
+                        applied = applied + mapOf("status" to "", "employee_id" to if (selectedReport == "individual") employee else "")
+                        page = 1
+                        request++
+                    }
+                }, allowAll = false)
+                Text("Pilih jenis laporan di atas. Atur tanggal, perusahaan, dan cabang melalui Filter.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            }
             item {
                 Text(if (reports) options.options("reports").find { it.id == activeReport }?.name ?: "Kehadiran" else "Seluruh Karyawan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(if (applied["start_date"].isNullOrBlank() && applied["end_date"].isNullOrBlank()) "Semua tanggal" else "${applied["start_date"].orEmpty()} s/d ${applied["end_date"].orEmpty()}", style = MaterialTheme.typography.bodySmall)
