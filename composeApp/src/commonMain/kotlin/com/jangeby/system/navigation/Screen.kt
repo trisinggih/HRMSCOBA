@@ -72,7 +72,17 @@ data class MapAttendanceRoute(val action: String)
 object CheckPointRoute
 
 @Serializable
+object KpiRoute
+
+
+@Serializable
 object TeamLatenessRoute
 
 @Serializable
-object KpiRoute
+object ManagementDashboardRoute
+
+@Serializable
+object ManagementReportsRoute
+
+@Serializable
+data class ManagementRecordsRoute(val module: String)

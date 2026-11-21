@@ -25,3 +25,9 @@ app_legacy/debug/
 # OS files
 .DS_Store
 Thumbs.db
+# Local Apple and server credentials
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+*.p8
+*.mobileprovision
+*firebase-adminsdk*.json

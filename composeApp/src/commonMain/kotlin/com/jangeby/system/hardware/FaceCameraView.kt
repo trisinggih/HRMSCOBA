@@ -26,6 +26,7 @@ fun FaceCameraView(
     var faceDetected by remember { mutableStateOf(false) }
     var captureTrigger by remember { mutableStateOf(0L) }
     var isCapturing by remember { mutableStateOf(false) }
+    var captureError by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         // Camera Preview underlying layer
@@ -36,7 +37,8 @@ fun FaceCameraView(
             },
             onPhotoCaptured = { base64 ->
                 isCapturing = false
-                onPhotoCaptured(base64)
+                if (base64.isNullOrBlank()) captureError = "Foto belum berhasil diambil. Silakan coba lagi."
+                else onPhotoCaptured(base64)
             },
             captureTrigger = captureTrigger
         )
@@ -86,6 +88,7 @@ fun FaceCameraView(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            captureError?.let { Text(it, color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp)) }
             Text(
                 text = if (faceDetected) "✅ Wajah terdeteksi, silakan tap tombol" else "Arahkan wajah Anda ke kamera",
                 color = if (faceDetected) Color(0xFF4CAF50) else Color(0xFFCCFFFFFF),
@@ -96,6 +99,7 @@ fun FaceCameraView(
             Button(
                 onClick = {
                     if (faceDetected && !isCapturing) {
+                        captureError = null
                         isCapturing = true
                         captureTrigger += 1L
                     }

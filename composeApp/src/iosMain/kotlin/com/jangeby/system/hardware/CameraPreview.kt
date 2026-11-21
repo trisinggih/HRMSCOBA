@@ -184,6 +184,7 @@ private class IosFaceCamera(
     private var faceVisible = false
     private var capturing = false
     private var pendingPhotoId: Long? = null
+    private var captureStartedAt = 0.0
     private var lastFaceAt = 0.0
     var ready by mutableStateOf(false)
         private set
@@ -203,8 +204,10 @@ private class IosFaceCamera(
     }
 
     fun checkPreview() {
+        if (capturing && NSDate().timeIntervalSince1970 - captureStartedAt > 12.0) finishPhoto(null)
         if (disposed || !active || errorMessage != null || openingAt == 0.0) return
-        if (session.running && previewLayer?.readyForDisplay == true) {
+        // AVCaptureVideoPreviewLayer exposes isPreviewing, not AVPlayerLayer.readyForDisplay.
+        if (session.running && previewLayer?.previewing == true) {
             ready = true
             openingAt = 0.0
         } else if (NSDate().timeIntervalSince1970 - openingAt > 10.0) {
@@ -266,8 +269,8 @@ private class IosFaceCamera(
         session.beginConfiguration()
         var success = false
         try {
-            if (session.canSetSessionPreset(AVCaptureSessionPresetPhoto)) {
-                session.sessionPreset = AVCaptureSessionPresetPhoto
+            if (session.canSetSessionPreset(AVCaptureSessionPresetHigh)) {
+                session.sessionPreset = AVCaptureSessionPresetHigh
             }
             if (!session.canAddInput(input)) return false
             session.addInput(input)
@@ -275,12 +278,7 @@ private class IosFaceCamera(
             session.addOutput(photoOutput)
             if (!session.canAddOutput(faceOutput)) return false
             session.addOutput(faceOutput)
-            if (!faceOutput.availableMetadataObjectTypes.contains(AVMetadataObjectTypeFace)) return false
-            faceOutput.setMetadataObjectsDelegate(this, dispatch_get_main_queue())
-            faceOutput.metadataObjectTypes = listOf(AVMetadataObjectTypeFace)
-            configured = true
             success = true
-            return true
         } finally {
             if (!success) {
                 faceOutput.setMetadataObjectsDelegate(null, null)
@@ -290,6 +288,20 @@ private class IosFaceCamera(
             }
             session.commitConfiguration()
         }
+        // Query supported metadata only after committing the input/output graph.
+        if (!faceOutput.availableMetadataObjectTypes.contains(AVMetadataObjectTypeFace)) {
+            session.beginConfiguration()
+            session.removeOutput(faceOutput)
+            session.removeOutput(photoOutput)
+            session.inputs.toList().filterIsInstance<AVCaptureInput>().forEach { session.removeInput(it) }
+            session.commitConfiguration()
+            showError("Deteksi wajah tidak tersedia pada kamera ini. Tutup kamera lalu buka kembali.")
+            return false
+        }
+        faceOutput.setMetadataObjectsDelegate(this, dispatch_get_main_queue())
+        faceOutput.metadataObjectTypes = listOf(AVMetadataObjectTypeFace)
+        configured = true
+        return true
     }
 
     override fun captureOutput(
@@ -313,11 +325,12 @@ private class IosFaceCamera(
     fun capture() {
         if (disposed) return
         expireFace()
-        if (!active || !faceVisible || !session.running || capturing) {
+        if (!active || !ready || !faceVisible || !session.running || capturing) {
             onPhoto(null)
             return
         }
         capturing = true
+        captureStartedAt = NSDate().timeIntervalSince1970
         val settings = AVCapturePhotoSettings.photoSettingsWithFormat(mapOf(AVVideoCodecKey to AVVideoCodecTypeJPEG))
         pendingPhotoId = settings.uniqueID
         dispatch_async(sessionQueue) {
@@ -377,6 +390,7 @@ private class IosFaceCamera(
             if (!capturing || pendingPhotoId != photoId) return@dispatch_async
             capturing = false
             pendingPhotoId = null
+            captureStartedAt = 0.0
             if (!disposed) onPhoto(photo)
         }
     }

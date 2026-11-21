@@ -18,6 +18,7 @@ import com.jangeby.system.ui.personal.PersonalViewModel
 import com.jangeby.system.ui.permit.PermitViewModel
 import com.jangeby.system.ui.payslip.PayslipViewModel
 import com.jangeby.system.ui.profile.ProfileViewModel
+import com.jangeby.system.ui.kpi.KpiViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -43,9 +44,9 @@ val appModule = module {
     viewModel<PersonalViewModel> { PersonalViewModel() }
     viewModel<PermitViewModel> { PermitViewModel() }
     viewModel<PayslipViewModel> { PayslipViewModel() }
-    viewModel<com.jangeby.system.ui.attendance.TeamLatenessViewModel> { com.jangeby.system.ui.attendance.TeamLatenessViewModel() }
-    viewModel<com.jangeby.system.ui.kpi.KpiViewModel> { com.jangeby.system.ui.kpi.KpiViewModel() }
     viewModel<ProfileViewModel> { ProfileViewModel(get()) }
+    viewModel<com.jangeby.system.ui.attendance.TeamLatenessViewModel> { com.jangeby.system.ui.attendance.TeamLatenessViewModel() }
+    viewModel<KpiViewModel> { KpiViewModel() }
 }
 
 fun initKoin() {

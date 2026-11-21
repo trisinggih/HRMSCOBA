@@ -183,25 +183,36 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
  * Info row for displaying label-value pair.
  */
 @Composable
-fun InfoRow(label: String, value: String) {
+fun InfoRow(label: String, value: String, subtitle: String? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF6B7280),
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1.2f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6B7280)
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 10.sp,
+                    lineHeight = 13.sp
+                )
+            }
+        }
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Medium,
             color = Color(0xFF111827),
-            modifier = Modifier.weight(1.5f)
+            modifier = Modifier.weight(1.3f)
         )
     }
 }

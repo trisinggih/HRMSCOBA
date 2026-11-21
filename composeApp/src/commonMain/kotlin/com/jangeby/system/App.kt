@@ -38,6 +38,8 @@ import com.jangeby.system.ui.profile.ProfileScreen
 import com.jangeby.system.ui.reimburse.ReimburseScreen
 import com.jangeby.system.ui.splash.SplashScreen
 import com.jangeby.system.ui.task.TaskScreen
+import com.jangeby.system.ui.kpi.KpiScreen
+import com.jangeby.system.navigation.KpiRoute
 import com.jangeby.system.ui.theme.HRMSTheme
 import org.koin.compose.koinInject
 
@@ -136,15 +138,30 @@ fun App() {
                     onNavigateToAsset = { navController.navigate(AssetRoute) },
                     onNavigateToCheckPoint = { navController.navigate(CheckPointRoute) },
                     onNavigateToPersonal = { navController.navigate(PersonalRoute) },
-                    onNavigateToKpi = { navController.navigate(KpiRoute) },
                     onNavigateToProfile = { navController.navigate(ProfileRoute) },
-                    onNavigateToLateness = { navController.navigate(TeamLatenessRoute) }
+                    onNavigateToKpi = { navController.navigate(KpiRoute) },
+                    onNavigateToLateness = { navController.navigate(TeamLatenessRoute) },
+                    onNavigateToManagementDashboard = { navController.navigate(ManagementDashboardRoute) },
+                    onNavigateToReports = { navController.navigate(ManagementReportsRoute) },
+                    onNavigateToManagementRecords = { module -> navController.navigate(ManagementRecordsRoute(module)) }
                 )
+            }
+
+            composable<ManagementDashboardRoute> {
+                com.jangeby.system.ui.management.ManagementDashboardScreen(onNavigateBack = { navController.popBackStack() })
+            }
+            composable<ManagementReportsRoute> {
+                com.jangeby.system.ui.management.ManagementRecordsScreen(reports = true, onNavigateBack = { navController.popBackStack() })
+            }
+            composable<ManagementRecordsRoute> { entry ->
+                val route = entry.toRoute<ManagementRecordsRoute>()
+                com.jangeby.system.ui.management.ManagementRecordsScreen(module = route.module, onNavigateBack = { navController.popBackStack() })
             }
 
             composable<TeamLatenessRoute> {
                 com.jangeby.system.ui.attendance.TeamLatenessScreen(onNavigateBack = { navController.popBackStack() })
             }
+
             composable<AttendanceRoute> {
                 AttendanceScreen(
                     onNavigateBack = { navController.popBackStack() },
@@ -237,7 +254,7 @@ fun App() {
             }
 
             composable<KpiRoute> {
-                com.jangeby.system.ui.kpi.KpiScreen(onNavigateBack = { navController.popBackStack() })
+                KpiScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             composable<ProfileRoute> {

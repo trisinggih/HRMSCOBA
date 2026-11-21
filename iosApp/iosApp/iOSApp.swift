@@ -3,6 +3,7 @@ import ComposeApp
 
 @main
 struct iOSApp: App {
+    @UIApplicationDelegateAdaptor(PushAppDelegate.self) private var pushDelegate
     init() {
         MainViewControllerKt.doInitIOSKoin()
     }

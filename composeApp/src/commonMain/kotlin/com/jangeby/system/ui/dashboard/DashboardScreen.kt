@@ -64,9 +64,12 @@ fun DashboardScreen(
     onNavigateToAsset: () -> Unit,
     onNavigateToCheckPoint: () -> Unit,
     onNavigateToPersonal: () -> Unit,
-    onNavigateToKpi: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToLateness: () -> Unit = {}
+    onNavigateToKpi: () -> Unit = {},
+    onNavigateToLateness: () -> Unit = {},
+    onNavigateToManagementDashboard: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToManagementRecords: (String) -> Unit = {}
 ) {
     val appSettings: AppSettings = koinInject()
     var userName by remember { mutableStateOf(appSettings.userName ?: "Karyawan") }
@@ -83,6 +86,20 @@ fun DashboardScreen(
         onPauseOrDispose { }
     }
 
+    var managementAccess by remember { mutableStateOf(com.jangeby.system.ui.management.ManagementAccess()) }
+    LaunchedEffect(userName) {
+        try {
+            val response = ApiClient.create().get(ApiClient.BASE_URL + "mobile/management/access")
+            if (response.status.value in 200..299) {
+                val result: ApiResponse<com.jangeby.system.ui.management.ManagementAccess> = response.body()
+                managementAccess = result.data ?: com.jangeby.system.ui.management.ManagementAccess()
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { managementAccess = com.jangeby.system.ui.management.ManagementAccess() }
+    }
+    fun employeeMenu(module: String, personal: () -> Unit): () -> Unit = {
+        if (managementAccess.allEmployeeData) onNavigateToManagementRecords(module) else personal()
+    }
     var canViewLateness by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         try {
@@ -234,20 +251,22 @@ fun DashboardScreen(
     val primaryVariant = Color(0xFF005662)
 
     val menuItems = listOfNotNull(
+        if (managementAccess.dashboard) MenuItem("Dashboard", com.jangeby.system.ui.management.ManagementDashboardIcon, 0, onNavigateToManagementDashboard) else null,
         MenuItem("Presensi", Icons.Default.DateRange, 0, onNavigateToAttendance),
-        MenuItem("Pengajuan", Icons.Default.Send, badges?.pengajuanCount ?: 0, onNavigateToPengajuan),
+        MenuItem("Pengajuan", Icons.Default.Send, badges?.pengajuanCount ?: 0, employeeMenu("pengajuan", onNavigateToPengajuan)),
         MenuItem("Approval", Icons.Default.CheckCircle, badges?.approvalCount ?: 0, onNavigateToApproval),
-        MenuItem("Tugas", Icons.Default.List, badges?.taskCount ?: 0, onNavigateToTask),
+        MenuItem("Tugas", Icons.Default.List, badges?.taskCount ?: 0, employeeMenu("tasks", onNavigateToTask)),
         MenuItem("KPI Saya", Icons.Default.Star, 0, onNavigateToKpi),
-        MenuItem("Slip Gaji", PayslipIcon, 0, onNavigateToPayslip),
-        MenuItem("Aset", Icons.Default.ShoppingCart, 0, onNavigateToAsset),
-        MenuItem("Kasbon", MoneyIcon, badges?.kasbonCount ?: 0, onNavigateToKasbon),
+        MenuItem("Slip Gaji", PayslipIcon, 0, employeeMenu("payslips", onNavigateToPayslip)),
+        MenuItem("Aset", Icons.Default.ShoppingCart, 0, employeeMenu("assets", onNavigateToAsset)),
+        MenuItem("Kasbon", MoneyIcon, badges?.kasbonCount ?: 0, employeeMenu("loans", onNavigateToKasbon)),
         // MenuItem("Klaim", Icons.Default.Person, badges?.reimburseCount ?: 0, onNavigateToReimburse), // Sementara di-hide
-        MenuItem("Lembur", Icons.Default.AddCircle, badges?.overtimeCount ?: 0, onNavigateToOvertime),
-        MenuItem("Check Point", Icons.Default.LocationOn, 0, onNavigateToCheckPoint),
-        MenuItem("Pengumuman", Icons.Default.Notifications, badges?.infoCount ?: 0, { onNavigateToAnnouncement(0) }),
-        MenuItem("Personal", Icons.Default.AccountBox, 0, onNavigateToPersonal),
-        if (canViewLateness) MenuItem("Terlambat", LatenessIcon, 0, onNavigateToLateness) else null
+        MenuItem("Lembur", Icons.Default.AddCircle, badges?.overtimeCount ?: 0, employeeMenu("overtime", onNavigateToOvertime)),
+        MenuItem("Check Point", Icons.Default.LocationOn, 0, employeeMenu("checkpoints", onNavigateToCheckPoint)),
+        MenuItem("Pengumuman", Icons.Default.Notifications, badges?.infoCount ?: 0, employeeMenu("announcements") { onNavigateToAnnouncement(0) }),
+        MenuItem("Personal", Icons.Default.AccountBox, 0, employeeMenu("personal", onNavigateToPersonal)),
+        if (canViewLateness) MenuItem("Terlambat", LatenessIcon, 0, onNavigateToLateness) else null,
+        if (managementAccess.reports) MenuItem("Report", com.jangeby.system.ui.management.ManagementReportIcon, 0, onNavigateToReports) else null
     )
 
     Scaffold(
@@ -412,7 +431,7 @@ fun DashboardScreen(
                         )
                         NavigationBarItem(
                             selected = false,
-                            onClick = { onNavigateToTask() },
+                            onClick = employeeMenu("tasks", onNavigateToTask),
                             icon = {
                                 val tCount = badges?.taskCount ?: 0
                                 BadgedBox(
@@ -446,7 +465,7 @@ fun DashboardScreen(
                         )
                         NavigationBarItem(
                             selected = false,
-                            onClick = { onNavigateToPengajuan() },
+                            onClick = employeeMenu("pengajuan", onNavigateToPengajuan),
                             icon = {
                                 val pCount = badges?.pengajuanCount ?: 0
                                 BadgedBox(
