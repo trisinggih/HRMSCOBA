@@ -31,8 +31,16 @@ import kotlinx.coroutines.launch
 @Composable
 fun PayslipScreen(
     onNavigateBack: () -> Unit,
-    viewModel: PayslipViewModel = koinViewModel()
+    viewModel: PayslipViewModel = koinViewModel(),
+    managementSlipId: Long? = null
 ) {
+    LaunchedEffect(managementSlipId) {
+        managementSlipId?.let { viewModel.selectPayslip(PayslipItem(id = it)) }
+    }
+    val closeDetail: () -> Unit = {
+        viewModel.clearSelectedPayslip()
+        if (managementSlipId != null) onNavigateBack()
+    }
     val payslipList by viewModel.payslips.collectAsState()
     val selectedPayslip by viewModel.selectedPayslip.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -51,8 +59,8 @@ fun PayslipScreen(
             HrmsTopBar(
                 title = "Slip Gaji",
                 onNavigateBack = {
-                    if (selectedPayslip != null) {
-                        viewModel.clearSelectedPayslip()
+                    if (selectedPayslip != null || managementSlipId != null) {
+                        closeDetail()
                     } else {
                         onNavigateBack()
                     }
@@ -91,8 +99,10 @@ fun PayslipScreen(
                 payslip = selectedPayslip!!,
                 modifier = Modifier.padding(padding),
                 viewModel = viewModel,
-                onClose = { viewModel.clearSelectedPayslip() }
+                onClose = closeDetail
             )
+        } else if (managementSlipId != null) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else {
             Box(
                 modifier = Modifier

@@ -22,6 +22,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.jangeby.system.ui.payslip.PayslipScreen
+import com.jangeby.system.ui.payslip.PayslipViewModel
 import com.jangeby.system.data.remote.ApiClient
 import com.jangeby.system.ui.component.DatePickerField
 import com.jangeby.system.ui.component.HrmsTopBar
@@ -73,6 +75,37 @@ internal fun ManagementRecordCard(row: ManagementRow, compact: Boolean = false, 
                 row.fields.filter { it.label in listOf("Tanggal", "Tanggal Mulai", "Periode", "Gaji Bersih", "Nominal", "Hadir", "Terlambat", "Judul") }.take(3).forEach { Text("${it.label}: ${it.value}", style = MaterialTheme.typography.bodySmall) }
                 Text("Lihat rincian", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
+        }
+    }
+}
+
+@Composable
+private fun ManagementPayslipCard(row: ManagementRow, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (!row.photo.isNullOrBlank()) AsyncImage(row.photo, row.title, Modifier.size(40.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(row.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    row.fields.firstOrNull { it.label == "Periode" }?.let { Text(it.value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                }
+                Text("Detail", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Gaji Bersih", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(row.fields.firstOrNull { it.label == "Gaji Bersih" }?.value ?: "-", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf("Penerimaan", "Potongan").forEach { label ->
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(row.fields.firstOrNull { it.label == label }?.value ?: "-", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+            if (row.status.isNotBlank()) Text(row.status.replace('_', ' '), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -172,6 +205,13 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<ManagementRow?>(null) }
     var ready by remember { mutableStateOf(false) }
+    val compactList = reports || module == "payslips"
+    val payslipViewModel = remember { PayslipViewModel(management = true) }
+    DisposableEffect(payslipViewModel) { onDispose { payslipViewModel.clearSelectedPayslip() } }
+    if (module == "payslips" && selected != null) {
+        PayslipScreen(onNavigateBack = { selected = null }, viewModel = payslipViewModel, managementSlipId = selected!!.id.toLong())
+        return
+    }
     val title = if (reports) "Report" else moduleTitles[module] ?: "Data Karyawan"
     LaunchedEffect(request, page) {
         loading = true; error = null
@@ -188,10 +228,10 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
         finally { loading = false }
     }
     val listState = rememberLazyListState()
-    LaunchedEffect(request, page) { if (reports) listState.scrollToItem(0) }
+    LaunchedEffect(request, page) { if (compactList) listState.scrollToItem(0) }
     val searchAction: () -> Unit = { applied = applied + ("search" to keyword); page = 1; request++ }
     Scaffold(containerColor = Background, topBar = { HrmsTopBar(title, onNavigateBack, actions = { TextButton(onClick = { filters = true }) { Text("Filter", color = androidx.compose.ui.graphics.Color.White) } }) }, bottomBar = {
-        if (reports) Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
+        if (compactList) Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 4.dp) {
             Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(enabled = !loading && page > 1, onClick = { page-- }) { Text("Sebelumnya") }
                 Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primaryContainer) {
@@ -222,7 +262,7 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
                 Text(if (applied["start_date"].isNullOrBlank() && applied["end_date"].isNullOrBlank()) "Semua tanggal" else "${applied["start_date"].orEmpty()} s/d ${applied["end_date"].orEmpty()}", style = MaterialTheme.typography.bodySmall)
             }
             item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (reports) {
+                if (compactList) {
                     Surface(modifier = Modifier.weight(1f).height(44.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
                         Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
                             BasicTextField(keyword, { keyword = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
@@ -246,8 +286,11 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
             if (!loading && error == null) {
                 item { Text("${data.total} data", style = MaterialTheme.typography.labelLarge) }
                 if (data.items.isEmpty()) item { Text("Belum ada data sesuai filter.", Modifier.padding(vertical = 32.dp)) }
-                items(data.items) { row -> ManagementRecordCard(row, compact = reports) { selected = row } }
-                if (!reports) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                items(data.items) { row ->
+                    if (module == "payslips") ManagementPayslipCard(row) { selected = row }
+                    else ManagementRecordCard(row, compact = reports) { selected = row }
+                }
+                if (!compactList) item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(enabled = page > 1, onClick = { page-- }) { Text("Sebelumnya") }
                     Text("${data.page} / ${data.lastPage}")
                     TextButton(enabled = page < data.lastPage, onClick = { page++ }) { Text("Berikutnya") }

@@ -16,7 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlin.math.abs
 
-class PayslipViewModel : ViewModel() {
+class PayslipViewModel(private val management: Boolean = false) : ViewModel() {
     private val _payslips = MutableStateFlow<List<PayslipItem>>(emptyList())
     val payslips: StateFlow<List<PayslipItem>> = _payslips.asStateFlow()
 
@@ -38,7 +38,7 @@ class PayslipViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 // Employee endpoint uses the web payslip template and checks ownership.
-                val response = ApiClient.create().get("${ApiClient.BASE_URL}my/payslips/$id/pdf")
+                val response = ApiClient.create().get("${ApiClient.BASE_URL}${if (management) "mobile/management" else "my"}/payslips/$id/pdf")
                 if (response.status.value !in 200..299) {
                     onError("Gagal mengunduh PDF (${response.status.value}). Silakan coba lagi.")
                     return@launch
@@ -60,7 +60,7 @@ class PayslipViewModel : ViewModel() {
     }
 
     init {
-        loadPayslips()
+        if (!management) loadPayslips()
     }
 
     fun loadPayslips() {
@@ -98,7 +98,7 @@ class PayslipViewModel : ViewModel() {
         _detailLoading.value = true
         detailJob = viewModelScope.launch {
             try {
-                val response = ApiClient.create().get("${ApiClient.BASE_URL}my/payslips/${item.id}")
+                val response = ApiClient.create().get("${ApiClient.BASE_URL}${if (management) "mobile/management" else "my"}/payslips/${item.id}")
                 val result: ApiResponse<PayslipItem> = response.body()
                 if (response.status.value in 200..299 && result.data != null) {
                     if (_selectedPayslip.value?.id == item.id) {
