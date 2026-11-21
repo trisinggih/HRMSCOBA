@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -51,7 +53,11 @@ internal fun ManagementPicker(label: String, value: String, options: List<Manage
 }
 
 @Composable
-internal fun ManagementRecordCard(row: ManagementRow, onClick: () -> Unit) {
+internal fun ManagementRecordCard(row: ManagementRow, compact: Boolean = false, onClick: () -> Unit) {
+    if (compact) {
+        ReportRecordCard(row, onClick)
+        return
+    }
     OutlinedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (!row.photo.isNullOrBlank()) AsyncImage(row.photo, row.title, Modifier.size(42.dp).clip(CircleShape), contentScale = ContentScale.Crop)
@@ -61,6 +67,40 @@ internal fun ManagementRecordCard(row: ManagementRow, onClick: () -> Unit) {
                 if (row.status.isNotBlank()) Text(row.status.replace('_', ' '), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                 row.fields.filter { it.label in listOf("Tanggal", "Tanggal Mulai", "Periode", "Gaji Bersih", "Nominal", "Hadir", "Terlambat", "Judul") }.take(3).forEach { Text("${it.label}: ${it.value}", style = MaterialTheme.typography.bodySmall) }
                 Text("Lihat rincian", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportRecordCard(row: ManagementRow, onClick: () -> Unit) {
+    val summary = row.fields.filter { it.label in listOf("Hadir", "Terlambat", "Mangkir", "Gaji Bersih", "Nominal", "Durasi (jam)", "Jumlah Hari", "Tanggal", "Tanggal Mulai", "Sisa Kasbon") }
+        .distinctBy { it.label }.take(3)
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (!row.photo.isNullOrBlank()) AsyncImage(row.photo, row.title, Modifier.size(40.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                Text(row.title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text("Detail", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+            if (row.status.isNotBlank()) {
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp)) {
+                    Text(row.status.replace('_', ' '), Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
+            if (summary.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                summary.forEach { field ->
+                    Column(Modifier.weight(1f).background(Background, RoundedCornerShape(8.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(field.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(field.value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }
@@ -158,14 +198,13 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
                         request++
                     }
                 }, allowAll = false)
-                Text("Pilih jenis laporan di atas. Atur tanggal, perusahaan, dan cabang melalui Filter.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
             item {
-                Text(if (reports) options.options("reports").find { it.id == activeReport }?.name ?: "Kehadiran" else "Seluruh Karyawan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                if (!reports) Text("Seluruh Karyawan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(if (applied["start_date"].isNullOrBlank() && applied["end_date"].isNullOrBlank()) "Semua tanggal" else "${applied["start_date"].orEmpty()} s/d ${applied["end_date"].orEmpty()}", style = MaterialTheme.typography.bodySmall)
             }
             item { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(keyword, { keyword = it }, label = { Text("Cari nama / keterangan") }, modifier = Modifier.weight(1f), singleLine = true)
+                OutlinedTextField(keyword, { keyword = it }, label = { Text(if (reports) "Cari karyawan" else "Cari nama / keterangan") }, modifier = Modifier.weight(1f), singleLine = true)
                 TextButton(enabled = !loading, onClick = { applied = applied + ("search" to keyword); page = 1; request++ }) { Text("Cari") }
             } }
             if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
@@ -173,7 +212,7 @@ fun ManagementRecordsScreen(module: String = "", reports: Boolean = false, onNav
             if (!loading && error == null) {
                 item { Text("${data.total} data", style = MaterialTheme.typography.labelLarge) }
                 if (data.items.isEmpty()) item { Text("Belum ada data sesuai filter.", Modifier.padding(vertical = 32.dp)) }
-                items(data.items) { row -> ManagementRecordCard(row) { selected = row } }
+                items(data.items) { row -> ManagementRecordCard(row, compact = reports) { selected = row } }
                 item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(enabled = page > 1, onClick = { page-- }) { Text("Sebelumnya") }
                     Text("${data.page} / ${data.lastPage}")
